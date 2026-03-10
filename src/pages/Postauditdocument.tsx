@@ -33,19 +33,7 @@ import { saveAs } from 'file-saver';
 
  const response = await fetch(Corner);
 const buffer = await response.arrayBuffer();
-const [cornerBuffer, setCornerBuffer] = useState<ArrayBuffer | undefined>();
-useEffect(() => {
-  const loadCornerImage = async () => {
-    try {
-      const response = await fetch(Corner);
-      const buffer = await response.arrayBuffer();
-      setCornerBuffer(buffer);
-    } catch (error) {
-      console.error('Error loading corner image:', error);
-    }
-  };
-  loadCornerImage();
-}, []);
+
 // ── TYPES ──────────────────────────────────
 interface DealerReAuditRow {
   partNumber: string;
@@ -152,6 +140,23 @@ const PostAuditDocument: React.FC<PostAuditDocumentProps> = ({
   const [brandName, setBrandName] = useState('TATA');
   const [undefinedRemarks, setUndefinedRemarks] = useState('Some Parts Undefine.');
   const [multiLocCount, setMultiLocCount] = useState('');
+
+    // Add this new state for corner image
+  const [cornerBuffer, setCornerBuffer] = useState<ArrayBuffer | undefined>();
+
+  // Load corner image - add this useEffect
+  useEffect(() => {
+    const loadCornerImage = async () => {
+      try {
+        const response = await fetch(Corner);
+        const buffer = await response.arrayBuffer();
+        setCornerBuffer(buffer);
+      } catch (error) {
+        console.error('Error loading corner image:', error);
+      }
+    };
+    loadCornerImage();
+  }, []);
 
   // Signature fields
   const [auditSupervisor, setAuditSupervisor] = useState('');
@@ -896,6 +901,7 @@ if (cornerBuffer) {
 
 
 // Add Logo (right aligned)
+// Add Logo (right aligned) - FIXED
 if (logoImageBuffer) {
   headerChildren.push(
     new Paragraph({
