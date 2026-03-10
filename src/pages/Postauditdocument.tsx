@@ -31,8 +31,7 @@ import {
 import { saveAs } from 'file-saver';
 
 
- const response = await fetch(Corner);
-const buffer = await response.arrayBuffer();
+ 
 
 // ── TYPES ──────────────────────────────────
 interface DealerReAuditRow {
