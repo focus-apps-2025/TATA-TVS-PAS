@@ -33,6 +33,19 @@ import { saveAs } from 'file-saver';
 
  const response = await fetch(Corner);
 const buffer = await response.arrayBuffer();
+const [cornerBuffer, setCornerBuffer] = useState<ArrayBuffer | undefined>();
+useEffect(() => {
+  const loadCornerImage = async () => {
+    try {
+      const response = await fetch(Corner);
+      const buffer = await response.arrayBuffer();
+      setCornerBuffer(buffer);
+    } catch (error) {
+      console.error('Error loading corner image:', error);
+    }
+  };
+  loadCornerImage();
+}, []);
 // ── TYPES ──────────────────────────────────
 interface DealerReAuditRow {
   partNumber: string;
@@ -837,45 +850,47 @@ const PostAuditDocument: React.FC<PostAuditDocumentProps> = ({
 const geometricBase64 = btoa(geometricSvg);
 
 // Create a fallback PNG for the geometric shape (optional)
-// You can use the same geometricBuffer as fallback or create a simple colored rectangle
 const fallbackSvg = `<svg width="120" height="80" xmlns="http://www.w3.org/2000/svg">
   <rect width="120" height="80" fill="#1A237E"/>
 </svg>`;
 const fallbackBase64 = btoa(fallbackSvg);
-const geometricBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${geometricBase64}`) || new ArrayBuffer(0);
-const fallbackBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${fallbackBase64}`) || new ArrayBuffer(0);
+
+// FIX: Remove the || operator since base64ToArrayBuffer already returns ArrayBuffer (never undefined)
+const geometricBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${geometricBase64}`);
+const fallbackBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${fallbackBase64}`);
 
 const headerChildren: any[] = [];
 
-// LEFT SIDE: Geometric Shape (your existing code)
-headerChildren.push(
-  new Paragraph({
-
-    children: [
-      new ImageRun({
-        data: buffer,  // Your geometric shape buffer
-        type: "png",
-        transformation: {
-          width: 160,
-          height: 130,
-        },
-        floating: {
-          horizontalPosition: {
-            relative: HorizontalPositionRelativeFrom.PAGE,
-            offset: 0,
+// LEFT SIDE: Geometric Shape
+if (cornerBuffer) {
+  headerChildren.push(
+    new Paragraph({
+      children: [
+        new ImageRun({
+          data: cornerBuffer,  // Use cornerBuffer instead of buffer
+          type: "png",
+          transformation: {
+            width: 160,
+            height: 130,
           },
-          verticalPosition: {
-            relative: VerticalPositionRelativeFrom.PAGE,
-            offset: 0,
+          floating: {
+            horizontalPosition: {
+              relative: HorizontalPositionRelativeFrom.PAGE,
+              offset: 0,
+            },
+            verticalPosition: {
+              relative: VerticalPositionRelativeFrom.PAGE,
+              offset: 0,
+            },
+            wrap: {
+              type: TextWrappingType.NONE,
+            },
           },
-          wrap: {
-            type: TextWrappingType.NONE,
-          },
-        },
-      })
-    ],
-  })
-);
+        })
+      ],
+    })
+  );
+}
 
 // RIGHT SIDE: Logo + Address (NEW CODE TO ADD)
 

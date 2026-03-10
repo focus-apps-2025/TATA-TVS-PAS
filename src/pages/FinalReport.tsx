@@ -1116,64 +1116,69 @@ const StockComparison: React.FC = () => {
     ];
   };
 
-  const applyRawDataStyling = (worksheet: ExcelJS.Worksheet, headerColor: string = 'FF004F98') => {
-    const headerRow = worksheet.getRow(1);
-    if (headerRow.values && headerRow.values.length > 0) { // Only apply if there's a header
-      headerRow.height = 25;
-      headerRow.eachCell((cell: ExcelJS.Cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
-        };
-      });
-    }
+const applyRawDataStyling = (worksheet: ExcelJS.Worksheet, headerColor: string = 'FF004F98') => {
+  const headerRow = worksheet.getRow(1);
+  
+  // FIX: Safely check if header has values
+  const hasHeaderValues = headerRow.values && 
+    typeof headerRow.values === 'object' && 
+    'length' in headerRow.values && 
+    (headerRow.values as any[]).length > 0;
+  
+  if (hasHeaderValues) {
+    headerRow.height = 25;
+    headerRow.eachCell((cell: ExcelJS.Cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } };
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+      };
+    });
+  }
 
-    // Data rows
-    for (let i = 2; i <= worksheet.rowCount; i++) {
-      const row = worksheet.getRow(i);
-      // Alternating row colors
-      if ((i - 2) % 2 === 0) {
-        row.eachCell((cell: ExcelJS.Cell) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
-        });
-      }
+  // Data rows
+  for (let i = 2; i <= worksheet.rowCount; i++) {
+    const row = worksheet.getRow(i);
+    if ((i - 2) % 2 === 0) {
       row.eachCell((cell: ExcelJS.Cell) => {
-        cell.alignment = { vertical: 'middle', horizontal: 'left' };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
-        };
-        // Auto-detect number formatting (simple attempt)
-        if (typeof cell.value === 'number') {
-          cell.numFmt = '#,##0.00'; // Default to 2 decimal places for numbers
-          cell.alignment.horizontal = 'right';
-        }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
       });
     }
+    row.eachCell((cell: ExcelJS.Cell) => {
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+      };
+      if (typeof cell.value === 'number') {
+        cell.numFmt = '#,##0.00';
+        cell.alignment.horizontal = 'right';
+      }
+    });
+  }
 
-    // Auto-fit columns based on content
-    if (worksheet.columns) {
-  worksheet.columns.forEach(column => {
-    if (column && typeof column.eachCell === 'function') {
-      let maxLength = 0;
-      column.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell) => {
-        const columnLength = cell.value ? cell.value.toString().length : 0;
-        if (columnLength > maxLength) {
-          maxLength = columnLength;
-        }
-      });
-      column.width = maxLength < 10 ? 10 : maxLength + 2;
-    }
-  });
-}
-  };
+  // Auto-fit columns
+  if (worksheet.columns) {
+    worksheet.columns.forEach(column => {
+      if (column) {
+        let maxLength = 0;
+        column.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell) => {
+          const columnLength = cell.value ? cell.value.toString().length : 0;
+          if (columnLength > maxLength) {
+            maxLength = columnLength;
+          }
+        });
+        column.width = maxLength < 10 ? 10 : maxLength + 2;
+      }
+    });
+  }
+};
 
   const downloadExcel = async (): Promise<void> => {
     if (!reportData) return;
