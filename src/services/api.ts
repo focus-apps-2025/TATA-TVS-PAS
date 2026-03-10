@@ -120,7 +120,7 @@ interface ExportRackRow {
 
 // We create a single, configured instance of Axios
 const apiService: AxiosInstance = axios.create({
-    baseURL: 'http://192.168.1.6:5000/api', //'https://pasbackend.focusengineeringapp.com/api',  //http://192.168.1.46:5000/api ,https://tata-tvs-backend.onrender.com/api
+    baseURL: 'https://pasbackend.focusengineeringapp.com/api',  //http://192.168.1.46:5000/api ,https://tata-tvs-backend.onrender.com/api
     withCredentials: true, // This is CRUCIAL for sending cookies across domains
     headers: {
         'Content-Type': 'application/json',
