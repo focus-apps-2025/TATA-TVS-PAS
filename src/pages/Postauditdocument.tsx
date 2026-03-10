@@ -783,20 +783,27 @@ const PostAuditDocument: React.FC<PostAuditDocumentProps> = ({
 
     try {
       // Helper function to convert base64 to array buffer
-      const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
-        const base64Data = base64.includes('base64,')
-          ? base64.split('base64,')[1]
-          : base64;
+     const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+  if (!base64) return new ArrayBuffer(0);
+  
+  const base64Data = base64.includes('base64,')
+    ? base64.split('base64,')[1]
+    : base64;
 
-        const binaryString = window.atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
+  try {
+    const binaryString = window.atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
 
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
 
-        return bytes.buffer;
-      };
+    return bytes.buffer;
+  } catch (e) {
+    console.error('Error converting base64 to array buffer:', e);
+    return new ArrayBuffer(0);
+  }
+};
 
       // Prepare logo image if available
       let logoImageBuffer: ArrayBuffer | undefined;
@@ -828,7 +835,6 @@ const PostAuditDocument: React.FC<PostAuditDocumentProps> = ({
   <polygon points="0,0 45,0 0,30" fill="#3949AB"/>
 </svg>`;
 const geometricBase64 = btoa(geometricSvg);
-const geometricBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${geometricBase64}`);
 
 // Create a fallback PNG for the geometric shape (optional)
 // You can use the same geometricBuffer as fallback or create a simple colored rectangle
@@ -836,7 +842,8 @@ const fallbackSvg = `<svg width="120" height="80" xmlns="http://www.w3.org/2000/
   <rect width="120" height="80" fill="#1A237E"/>
 </svg>`;
 const fallbackBase64 = btoa(fallbackSvg);
-const fallbackBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${fallbackBase64}`);
+const geometricBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${geometricBase64}`) || new ArrayBuffer(0);
+const fallbackBuffer = base64ToArrayBuffer(`data:image/svg+xml;base64,${fallbackBase64}`) || new ArrayBuffer(0);
 
 const headerChildren: any[] = [];
 
@@ -1438,31 +1445,31 @@ headerChildren.push(
             margins: { top: 100, bottom: 100, left: 100, right: 100 }
           }),
           new TableCell({ 
-            colSpan: 3,
+            columnSpan: 3,
             children: [new Paragraph({ children: [new TextRun({ text: 'DMS Stock', bold: true, color: 'FFFFFF' })] })],
             shading: { fill: '1D4ED8' },
             margins: { top: 100, bottom: 100, left: 100, right: 100 }
           }),
           new TableCell({ 
-            colSpan: 3,
+            columnSpan: 3,
             children: [new Paragraph({ children: [new TextRun({ text: 'Physical Stock', bold: true, color: 'FFFFFF' })] })],
             shading: { fill: '166534' },
             margins: { top: 100, bottom: 100, left: 100, right: 100 }
           }),
           new TableCell({ 
-            colSpan: 2,
+            columnSpan: 2,
             children: [new Paragraph({ children: [new TextRun({ text: 'Excess', bold: true, color: 'FFFFFF' })] })],
             shading: { fill: '15803D' },
             margins: { top: 100, bottom: 100, left: 100, right: 100 }
           }),
           new TableCell({ 
-            colSpan: 2,
+            columnSpan: 2,
             children: [new Paragraph({ children: [new TextRun({ text: 'Short', bold: true, color: 'FFFFFF' })] })],
             shading: { fill: 'DC2626' },
             margins: { top: 100, bottom: 100, left: 100, right: 100 }
           }),
           new TableCell({ 
-            colSpan: 2,
+            columnSpan: 2,
             children: [new Paragraph({ children: [new TextRun({ text: 'Net Diff', bold: true, color: 'FFFFFF' })] })],
             shading: { fill: '7C3AED' },
             margins: { top: 100, bottom: 100, left: 100, right: 100 }

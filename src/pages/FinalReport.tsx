@@ -1118,7 +1118,7 @@ const StockComparison: React.FC = () => {
 
   const applyRawDataStyling = (worksheet: ExcelJS.Worksheet, headerColor: string = 'FF004F98') => {
     const headerRow = worksheet.getRow(1);
-    if (headerRow.values.length > 0) { // Only apply if there's a header
+    if (headerRow.values && headerRow.values.length > 0) { // Only apply if there's a header
       headerRow.height = 25;
       headerRow.eachCell((cell: ExcelJS.Cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } };
@@ -1159,7 +1159,9 @@ const StockComparison: React.FC = () => {
     }
 
     // Auto-fit columns based on content
-    worksheet.columns.forEach(column => {
+    if (worksheet.columns) {
+  worksheet.columns.forEach(column => {
+    if (column && typeof column.eachCell === 'function') {
       let maxLength = 0;
       column.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell) => {
         const columnLength = cell.value ? cell.value.toString().length : 0;
@@ -1167,8 +1169,10 @@ const StockComparison: React.FC = () => {
           maxLength = columnLength;
         }
       });
-      column.width = maxLength < 10 ? 10 : maxLength + 2; // Min width 10, plus some padding
-    });
+      column.width = maxLength < 10 ? 10 : maxLength + 2;
+    }
+  });
+}
   };
 
   const downloadExcel = async (): Promise<void> => {
