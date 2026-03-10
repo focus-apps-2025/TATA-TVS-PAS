@@ -1163,10 +1163,10 @@ const applyRawDataStyling = (worksheet: ExcelJS.Worksheet, headerColor: string =
     });
   }
 
-  // Auto-fit columns
+  // Auto-fit columns - FIXED
   if (worksheet.columns) {
     worksheet.columns.forEach(column => {
-      if (column) {
+      if (column && typeof column.eachCell === 'function') {
         let maxLength = 0;
         column.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell) => {
           const columnLength = cell.value ? cell.value.toString().length : 0;

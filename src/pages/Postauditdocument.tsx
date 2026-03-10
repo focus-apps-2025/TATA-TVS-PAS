@@ -896,30 +896,35 @@ if (cornerBuffer) {
 
 
 // Add Logo (right aligned)
-headerChildren.push(
- new Paragraph({
-  children: [
-    new ImageRun({
-      data: logoImageBuffer,
-      type: "png",
-      transformation: { width: 140, height: 60 },
-        floating: {
-      horizontalPosition: {
-        relative: HorizontalPositionRelativeFrom.MARGIN,
-        align: HorizontalPositionAlign.RIGHT,
-      },
-      verticalPosition: {
-        relative: VerticalPositionRelativeFrom.MARGIN,
-        offset: 0, // fine tune
-      },
-      wrap: {
-        type: TextWrappingType.NONE,
-      },
-    },
-    }),
-  ],
-})
-);
+if (logoImageBuffer) {
+  headerChildren.push(
+    new Paragraph({
+      children: [
+        new ImageRun({
+          data: logoImageBuffer,
+          type: "png",
+          transformation: { width: 140, height: 60 },
+          floating: {
+            horizontalPosition: {
+              relative: HorizontalPositionRelativeFrom.MARGIN,
+              align: HorizontalPositionAlign.RIGHT,
+            },
+            verticalPosition: {
+              relative: VerticalPositionRelativeFrom.MARGIN,
+              offset: 0,
+            },
+            wrap: {
+              type: TextWrappingType.NONE,
+            },
+          },
+        }),
+      ],
+    })
+  );
+} else {
+  // Optional: Add a placeholder or skip the logo
+  console.log('Logo image buffer not available');
+}
 
 // Add Address line 1 (right aligned)
 headerChildren.push(
