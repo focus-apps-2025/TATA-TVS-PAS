@@ -496,15 +496,15 @@ const TataFinalReport: React.FC = () => {
         // Find Count Sheet columns
         const countPartNoIndex = findColumnIndex(countHeaders, [
           'partno', 'part no', 'part number', 'part #', 'item code',
-          'code', 'item no', 'partcode', 'material no'
+          'code', 'item no', 'partcode', 'material no','Part No.'
         ]);
 
         const countQtyIndex = findColumnIndex(countHeaders, [
-          'qty', 'quantity', 'count', 'stock', 'phyqty', 'physical qty'
+          'qty', 'quantity', 'count', 'stock', 'phyqty', 'physical qty','Qty'
         ]);
 
         const countLocationIndex = findColumnIndex(countHeaders, [
-          'location', 'bin', 'storage', 'rack', 'shelf'
+          'location', 'bin', 'storage', 'rack', 'shelf','Location'
         ]);
 
         // 🔴 IMPORTANT: Get MRP/Price from COUNT SHEET, not After Sheet!
@@ -514,15 +514,15 @@ const TataFinalReport: React.FC = () => {
         ]);
 
         const countDescIndex = findColumnIndex(countHeaders, [
-          'description', 'material description', 'part description'
+          'description', 'material description', 'part description','Material Description'
         ]);
 
         const countCategoryIndex = findColumnIndex(countHeaders, [
-          'category', 'product category', 'item category'
+          'category', 'product category', 'item category','Product Category'
         ]);
 
         const countRemarkIndex = findColumnIndex(countHeaders, [
-          'remark', 'remarks', 'notes', 'comment'
+          'remark', 'remarks', 'notes', 'comment','Remark'
         ]);
 
         console.log('=== COUNT SHEET INDICES ===');
@@ -541,17 +541,17 @@ const TataFinalReport: React.FC = () => {
         // Find After Sheet columns - ONLY for subtraction!
         const afterPartNoIndex = findColumnIndex(afterHeaders, [
           'partnumber', 'part no', 'part number', 'part #',
-          'item code', 'code', 'material no'
+          'item code', 'code', 'material no','Part No.'
         ]);
 
         const afterLocationIndex = findColumnIndex(afterHeaders, [
-          'location', 'bin', 'storage', 'rack', 'shelf'
+          'location', 'bin', 'storage', 'rack', 'shelf','Location'
         ]);
 
         // After Sheet "Final Qty" is the QUANTITY TO SUBTRACT
         const afterFinalQtyIndex = findColumnIndex(afterHeaders, [
           'final qty', 'finalqty', 'qty to subtract', 'subtract qty',
-          'adjustment', 'deduction', 'remove qty', 'sold qty'
+          'adjustment', 'deduction', 'remove qty', 'sold qty','Qty'
         ]);
 
         console.log('=== AFTER SHEET INDICES ===');
@@ -750,23 +750,23 @@ const TataFinalReport: React.FC = () => {
 
         // Find OnHand columns
         const onHandPartNoIndex = findColumnIndex(onHandHeaders, [
-          'part', 'partno', 'part no', 'part number', 'part #'
+          'part', 'partno', 'part no', 'part number', 'part #','PART NO'
         ]);
 
         const onHandQtyIndex = findColumnIndex(onHandHeaders, [
-          'qty', 'quantity', 'stock'
+          'qty', 'quantity', 'stock','QTY'
         ]);
 
         const onHandPriceIndex = findColumnIndex(onHandHeaders, [
-          'weighted average', 'weightedaverage', 'avg price', 'average price'
+          'weighted average', 'weightedaverage', 'avg price', 'average price','NDP'
         ]);
 
         const onHandDescIndex = findColumnIndex(onHandHeaders, [
-          'description', 'desc'
+          'description', 'desc','DESCRIPTION'
         ]);
 
         const onHandCategoryIndex = findColumnIndex(onHandHeaders, [
-          'category', 'product category'
+          'category', 'product category','CATEGORY','LOCATION'
         ]);
 
         // ============================================
@@ -929,6 +929,7 @@ const TataFinalReport: React.FC = () => {
             const dmgQty = physical.dmgQty || 0;
 
             const finalPhy = phyQty;
+            const goodPhyQty = finalPhy - dmgQty; // Separate good stock from damaged
             const diff = finalPhy - stockQty;
             const stockValue = stockQty * partPrice;
             const phyValue = finalPhy * partPrice;
@@ -941,10 +942,10 @@ const TataFinalReport: React.FC = () => {
               category: category,
               partPrice: partPrice,
               stockQty: stockQty,
-              phyQty: phyQty,
+              phyQty: goodPhyQty, // Only good stock in phyQty column
               dmgQty: dmgQty,
               p4i: 0,
-              finalPhy: finalPhy,
+              finalPhy: finalPhy, // Total physical stock
               diff: diff,
               stockValue: stockValue,
               phyValue: phyValue,
@@ -970,6 +971,7 @@ const TataFinalReport: React.FC = () => {
             const dmgQty = physical.dmgQty || 0;
 
             const finalPhy = phyQty;
+            const goodPhyQty = finalPhy - dmgQty;
             const diff = finalPhy - stockQty;  // Should be positive (EXCESS)
             const stockValue = stockQty * partPrice;
             const phyValue = finalPhy * partPrice;
@@ -982,7 +984,7 @@ const TataFinalReport: React.FC = () => {
               category: category,
               partPrice: partPrice,
               stockQty: stockQty,
-              phyQty: phyQty,
+              phyQty: goodPhyQty,
               dmgQty: dmgQty,
               p4i: 0,
               finalPhy: finalPhy,
@@ -1172,8 +1174,8 @@ const TataFinalReport: React.FC = () => {
 
       // Physical Stock Stats (as counted)
       const physicalValue = categoryRows.reduce((sum, row) => sum + (row.phyValue || 0), 0);
-      const physicalPartLines = categoryRows.filter(row => row.phyQty > 0).length;
-      const physicalQuantity = categoryRows.reduce((sum, row) => sum + (row.finalPhy || row.phyQty || 0), 0);
+      const physicalPartLines = categoryRows.filter(row => row.finalPhy > 0).length;
+      const physicalQuantity = categoryRows.reduce((sum, row) => sum + (row.finalPhy || 0), 0);
 
       // Excess Found (Physical > DMS)
       const excessRows = categoryRows.filter(row => row.diff > 0);
@@ -1542,7 +1544,7 @@ const TataFinalReport: React.FC = () => {
         for (let row = headerRow1; row <= headerRow2; row++) {
           for (let col = 1; col <= 13; col++) {
             const cell = summarySheet.getCell(row, col);
-            cell.font = { bold: true, size: 11 };
+            cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } }; // White text for headers
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = {
               top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
@@ -1553,21 +1555,21 @@ const TataFinalReport: React.FC = () => {
 
             // Background colors for main headers
             if (row === headerRow1) {
-              if (col === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
-              if (col >= 2 && col <= 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
-              if (col >= 5 && col <= 7) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
-              if (col >= 8 && col <= 9) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E0' } };
-              if (col >= 10 && col <= 11) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
-              if (col >= 12 && col <= 13) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } };
+              if (col === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF455A64' } }; // Blue Grey
+              if (col >= 2 && col <= 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }; // Professional Blue
+              if (col >= 5 && col <= 7) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF964B00' } }; // Professional Green
+              if (col >= 8 && col <= 9) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } }; // Light Green 
+              if (col >= 10 && col <= 11) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC62828' } }; // Dark Red
+              if (col >= 12 && col <= 13) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6A1B9A' } }; // Professional Purple
             }
 
             // Background colors for sub headers
             if (row === headerRow2) {
-              if (col === 2 || col === 3 || col === 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
-              if (col === 5 || col === 6 || col === 7) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
-              if (col === 8 || col === 9) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E0' } };
-              if (col === 10 || col === 11) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
-              if (col === 12 || col === 13) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } };
+              if (col === 2 || col === 3 || col === 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } };
+              if (col === 5 || col === 6 || col === 7) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF964B00' } };
+              if (col === 8 || col === 9) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } };
+              if (col === 10 || col === 11) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC62828' } };
+              if (col === 12 || col === 13) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6A1B9A' } };
             }
           }
         }
@@ -1679,27 +1681,50 @@ const TataFinalReport: React.FC = () => {
         });
 
         // ============================================
+        // ADDITIONAL DISCREPANCY SUMMARY (DMS ONLY vs PHYSICAL ONLY)
+        // ============================================
+        currentRow += 1; // Gap after table
+        
+        // Count parts only in DMS (Stock > 0 but Physical == 0)
+        const dmsOnlyCount = compileReport.filter(r => r.stockQty > 0 && r.finalPhy === 0).length;
+        // Count parts only in Physical (Stock == 0 but Physical > 0)
+        const physicalOnlyCount = compileReport.filter(r => r.stockQty === 0 && r.finalPhy > 0).length;
+
+        const dmsOnlyRow = summarySheet.getRow(currentRow);
+        summarySheet.mergeCells(`A${currentRow}:E${currentRow}`);
+        dmsOnlyRow.getCell(1).value = `Part Lines present only in DMS (Missing from Physical Count): ${dmsOnlyCount}`;
+        dmsOnlyRow.getCell(1).font = { bold: true, color: { argb: 'FFEF4444' } };
+        dmsOnlyRow.getCell(1).alignment = { horizontal: 'left' };
+        
+        currentRow++;
+        const physicalOnlyRow = summarySheet.getRow(currentRow);
+        summarySheet.mergeCells(`A${currentRow}:E${currentRow}`);
+        physicalOnlyRow.getCell(1).value = `Part Lines present only in Physical (Not in DMS Record): ${physicalOnlyCount}`;
+        physicalOnlyRow.getCell(1).font = { bold: true, color: { argb: 'FF10B981' } };
+        physicalOnlyRow.getCell(1).alignment = { horizontal: 'left' };
+
+        // ============================================
         // FOOTNOTE - LEGEND
         // ============================================
         const footnoteRow = currentRow + 2;
 
         summarySheet.getCell(`A${footnoteRow}`).value = '●';
-        summarySheet.getCell(`A${footnoteRow}`).font = { color: { argb: 'FFE3F2FD' }, size: 12 };
+        summarySheet.getCell(`A${footnoteRow}`).font = { color: { argb: 'FF1976D2' }, size: 12 };
         summarySheet.getCell(`B${footnoteRow}`).value = 'DMS Stock (System)';
         summarySheet.getCell(`B${footnoteRow}`).font = { size: 9 };
 
         summarySheet.getCell(`D${footnoteRow}`).value = '●';
-        summarySheet.getCell(`D${footnoteRow}`).font = { color: { argb: 'FFE8F5E9' }, size: 12 };
+        summarySheet.getCell(`D${footnoteRow}`).font = { color: { argb: 'FF2E7D32' }, size: 12 };
         summarySheet.getCell(`E${footnoteRow}`).value = 'Physical Counted';
         summarySheet.getCell(`E${footnoteRow}`).font = { size: 9 };
 
         summarySheet.getCell(`G${footnoteRow}`).value = '●';
-        summarySheet.getCell(`G${footnoteRow}`).font = { color: { argb: 'FFFFF3E0' }, size: 12 };
+        summarySheet.getCell(`G${footnoteRow}`).font = { color: { argb: 'FF4CAF50' }, size: 12 };
         summarySheet.getCell(`H${footnoteRow}`).value = 'Excess Found';
         summarySheet.getCell(`H${footnoteRow}`).font = { size: 9 };
 
         summarySheet.getCell(`J${footnoteRow}`).value = '●';
-        summarySheet.getCell(`J${footnoteRow}`).font = { color: { argb: 'FFFFEBEE' }, size: 12 };
+        summarySheet.getCell(`J${footnoteRow}`).font = { color: { argb: 'FFC62828' }, size: 12 };
         summarySheet.getCell(`K${footnoteRow}`).value = 'Short Found';
         summarySheet.getCell(`K${footnoteRow}`).font = { size: 9 };
 
@@ -2085,8 +2110,11 @@ const TataFinalReport: React.FC = () => {
       // APPLY STYLING
       // ============================================
       workbook.eachSheet((worksheet) => {
+        // Skip global styling for Summary sheet as it has its own complex structure
+        if (worksheet.name === 'Summary') return;
+
         // Auto-size columns
-        worksheet.columns.forEach((column, index) => {
+        worksheet.columns.forEach((column) => {
           let maxLength = 0;
           column.eachCell?.({ includeEmpty: true }, cell => {
             const cellValue = cell.value ? cell.value.toString() : '';
@@ -2095,22 +2123,37 @@ const TataFinalReport: React.FC = () => {
           column.width = Math.min(maxLength + 2, 50);
         });
 
-        // Style header row (row 4 for most sheets, adjust as needed)
-        const headerRow = worksheet.getRow(4);
-        if (headerRow && headerRow.values && (headerRow.values as any[]).length > 0) {
-          headerRow.font = { bold: true };
-          headerRow.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE67E22' } // TATA orange
-          };
-          headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+        // Determine correct header row (Row 3 for some, Row 4 for others)
+        let headerRowIndex = 4;
+        if (worksheet.name === 'Damage Parts' || worksheet.name === 'On-Hand Stock (DMS)') {
+          headerRowIndex = 3;
+        }
+
+        const headerRow = worksheet.getRow(headerRowIndex);
+        if (headerRow) {
+          headerRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // White text
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF1976D2' } // Professional Blue
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+          });
+          headerRow.height = 20;
         }
 
         // Style first title row
         const titleRow = worksheet.getRow(1);
         if (titleRow) {
-          titleRow.font = { size: 16, bold: true, color: { argb: 'FFD35400' } };
+          titleRow.font = { size: 16, bold: true, color: { argb: 'FF1976D2' } };
+          titleRow.alignment = { vertical: 'middle', horizontal: 'left' };
         }
       });
 
@@ -2243,7 +2286,7 @@ const TataFinalReport: React.FC = () => {
                         </Box>
                         <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Count Sheet</Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Upload the physical count sheet from audit
+                          Upload the physical count sheet from audit 
                         </Typography>
                         {countFileName ? (
                           <FilePreview
@@ -2257,6 +2300,24 @@ const TataFinalReport: React.FC = () => {
                           </ActionButton>
                         )}
                         <input id="count-upload" type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, 'count')} />
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 ,fontSize:12,letterSpacing: '0.02em',fontWeight: 600 }}>
+                          Please make sure the Excel file contains the following columns with the exact names:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt:0.5,fontSize:12,letterSpacing: '0.02em', }}>
+                          | Product Category | Location | Part No. | Qty | NDP | Material Description | Remark |
+                        </Typography>
+                        <Typography sx={{ mt: 1,fontSize:12,letterSpacing: '0.02em',textAlign:'left',marginLeft:1,textDecoration:'underline',fontWeight: 600 }}>
+                  ⚠️ Important Instructions:
+                  </Typography>
+                  <Typography sx={{ fontSize:12,letterSpacing: '0.02em',alignContent:'left',alignItems:'left',justifyContent:'left',textAlign:'left' }}>
+  <ol>
+  <li>The column names must match exactly as shown above.</li>
+  <li>If the column names are different, the system will not process the upload correctly.</li>
+  <li>Non - Empty Racks (Location)</li>
+  <li>Make sure the Damaged part is placed in Remark Column. and Mention  that category of damaged part</li>
+  <li>Please verify the columns before uploading the file.</li>
+  </ol>
+                        </Typography>
                       </CardContent>
                     </UploadCard>
                   </Grid>
@@ -2269,7 +2330,7 @@ const TataFinalReport: React.FC = () => {
                         </Box>
                         <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>After Sheet</Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                          Upload the reference after sheet with part details
+                          Upload the  after sheet with part details
                         </Typography>
                         {afterFileName ? (
                           <FilePreview
@@ -2283,6 +2344,23 @@ const TataFinalReport: React.FC = () => {
                           </ActionButton>
                         )}
                         <input id="after-upload" type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, 'after')} />
+                         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 ,fontSize:12,letterSpacing: '0.02em',fontWeight: 600 }}>
+                          Please make sure the Excel file contains the following columns with the exact names:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt:0.5,fontSize:12,letterSpacing: '0.02em', }}>
+                          | Product Category | Location | Part No. | Qty | NDP | Material Description | Remark |
+                        </Typography>
+                        <Typography sx={{ mt: 1,fontSize:12,letterSpacing: '0.02em',textAlign:'left',marginLeft:1,textDecoration:'underline',fontWeight: 600 }}>
+                  ⚠️ Important Instructions:
+                  </Typography>
+                  <Typography sx={{ fontSize:12,letterSpacing: '0.02em',alignContent:'left',alignItems:'left',justifyContent:'left',textAlign:'left' }}>
+  <ol>
+  <li>The column names must match exactly as shown above.</li>
+  <li>If the column names are different, the system will not process the upload correctly.</li>
+  <li>Non - Empty Racks(Location)</li>
+  <li>Please verify the columns before uploading the file.</li>
+  </ol>
+                        </Typography>
                       </CardContent>
                     </UploadCard>
                   </Grid>
@@ -2357,6 +2435,29 @@ const TataFinalReport: React.FC = () => {
                           </ActionButton>
                         )}
                         <input id="onhand-upload" type="file" hidden accept=".xlsx,.xls" onChange={(e) => handleFileUpload(e, 'onhand')} />
+                         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 ,fontSize:12,letterSpacing: '0.02em',fontWeight: 600 }}>
+                          Please make sure the Excel file contains the following columns with the exact names:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt:0.5,fontSize:12,letterSpacing: '0.02em', }}>
+                          | Part# | Description | Qty | Weighted Average | Product Category | Location 1 | Location 2 | Location 3 |
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt:0.5,fontSize:16,letterSpacing: '0.02em', }}>
+                          OR
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt:0.5,fontSize:12,letterSpacing: '0.02em', }}>
+                          | LOCATION | PART NO | QTY | NDP | DESCRIPTION |
+                        </Typography>
+                        <Typography sx={{ mt: 1,fontSize:12,letterSpacing: '0.02em',textAlign:'left',marginLeft:1,textDecoration:'underline',fontWeight: 600 }}>
+                  ⚠️ Important Instructions:
+                  </Typography>
+                  <Typography sx={{ fontSize:12,letterSpacing: '0.02em',alignContent:'left',alignItems:'left',justifyContent:'left',textAlign:'left' }}>
+  <ol>
+  <li>The column names must match exactly as shown above.</li>
+  <li>If the column names are different, the system will not process the upload correctly.</li>
+  <li>Non -  Empty Product Category</li>
+  <li>Please verify the columns before uploading the file.</li>
+  </ol>
+                        </Typography>
                       </CardContent>
                     </UploadCard>
                   </Grid>
@@ -2684,12 +2785,10 @@ const TataFinalReport: React.FC = () => {
                     </Paper>
                   </Grid>
                   <Grid size={{ xs: 6, md: 3 }}>
-                    <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#fff3e0', borderRadius: 2 }}>
-                      <Typography variant="caption" color="text.secondary">Avg Price</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700, color: '#ef6c00' }}>
-                        ₹ {compileReport.length > 0 ?
-                          (compileReport.reduce((sum, r) => sum + r.partPrice, 0) / compileReport.length).toFixed(2) :
-                          '0.00'}
+                    <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#ffebee', borderRadius: 2 }}>
+                      <Typography variant="caption" color="text.secondary">Shortage Parts</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: '#c62828' }}>
+                        {compileReport.filter(r => r.diff < 0).length}
                       </Typography>
                     </Paper>
                   </Grid>
@@ -2697,7 +2796,7 @@ const TataFinalReport: React.FC = () => {
                     <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#fce4ec', borderRadius: 2 }}>
                       <Typography variant="caption" color="text.secondary">Total Value Diff</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 700, color: '#ad1457' }}>
-                        ₹ {Math.abs(compileReport.reduce((sum, r) => sum + r.shortExcess, 0)).toFixed(2)}
+                        ₹ {Math.abs(compileReport.reduce((sum, r) => sum + r.shortExcess, 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </Typography>
                     </Paper>
                   </Grid>
@@ -3014,6 +3113,35 @@ const TataFinalReport: React.FC = () => {
                       <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: '#ffebee' }} />
                       <Typography variant="caption">Short Found</Typography>
                     </Box>
+                  </Box>
+
+                  {/* Additional Discrepancy Summary */}
+                  <Box sx={{ mt: 4, p: 2, borderRadius: 2, bgcolor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: tataPrimaryColor }}>
+                      Audit Discrepancy Overview
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Paper elevation={0} sx={{ p: 2, border: '1px solid #ffcdd2', bgcolor: '#fff5f5' }}>
+                          <Typography variant="body2" color="error" sx={{ fontWeight: 600 }}>
+                            Part Lines missing from Physical (DMS only):
+                          </Typography>
+                          <Typography variant="h5" color="error" sx={{ fontWeight: 700 }}>
+                            {compileReport.filter(r => r.stockQty > 0 && r.finalPhy === 0).length}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Paper elevation={0} sx={{ p: 2, border: '1px solid #c8e6c9', bgcolor: '#f1f8f1' }}>
+                          <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
+                            Extra Parts found (Physical only, no DMS):
+                          </Typography>
+                          <Typography variant="h5" color="success.main" sx={{ fontWeight: 700 }}>
+                            {compileReport.filter(r => r.stockQty === 0 && r.finalPhy > 0).length}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
                   </Box>
                 </CardContent>
               </ProfessionalCard>
