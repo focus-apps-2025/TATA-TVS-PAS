@@ -3121,7 +3121,7 @@ const TataFinalReport: React.FC = () => {
                       Audit Discrepancy Overview
                     </Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
                         <Paper elevation={0} sx={{ p: 2, border: '1px solid #ffcdd2', bgcolor: '#fff5f5' }}>
                           <Typography variant="body2" color="error" sx={{ fontWeight: 600 }}>
                             Part Lines missing from Physical (DMS only):
@@ -3131,7 +3131,7 @@ const TataFinalReport: React.FC = () => {
                           </Typography>
                         </Paper>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
                         <Paper elevation={0} sx={{ p: 2, border: '1px solid #c8e6c9', bgcolor: '#f1f8f1' }}>
                           <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
                             Extra Parts found (Physical only, no DMS):
