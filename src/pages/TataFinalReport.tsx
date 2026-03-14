@@ -2060,15 +2060,12 @@ const TataFinalReport: React.FC = () => {
         onHandSheet.addRow(onHandHeaders);
 
         // Add data rows
-        for (let i = 1; i < Math.min(onHandSheetData.length, 1000); i++) {
+        for (let i = 1; i < Math.min(onHandSheetData.length, 10000); i++) {
           onHandSheet.addRow(onHandSheetData[i]);
         }
 
-        // Add note if rows were truncated
-        if (onHandSheetData.length > 1000) {
-          onHandSheet.addRow([]);
-          onHandSheet.addRow([`Note: Showing first 1000 rows of ${onHandSheetData.length} total rows`]);
-        }
+       
+       
       }
 
       // ============================================
