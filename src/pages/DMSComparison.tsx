@@ -13,13 +13,22 @@ import {
   Link,
   Tooltip,
   Snackbar,
-  Alert as MuiAlert
+  Alert as MuiAlert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Download as DownloadIcon,
   Home as HomeIcon,
-  NavigateNext as NavigateNextIcon
+  NavigateNext as NavigateNextIcon,
+  Save as SaveIcon,
+  Edit as EditIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import * as XLSX from 'xlsx';
@@ -42,6 +51,7 @@ interface ComparisonRow {
   prevShort?: number;
   prevExcess?: number;
   prevPhysicalQty?: number;
+  wasAutoResolved?: boolean;
 }
 
 const DMSComparison: React.FC = () => {
@@ -56,6 +66,13 @@ const DMSComparison: React.FC = () => {
   const [savingRemark, setSavingRemark] = useState<string | null>(null);
   const [resolvingPart, setResolvingPart] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<{ partNo: string; message: string } | null>(null);
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [showRemainingDialog, setShowRemainingDialog] = useState(false);
+  const [remainingParts, setRemainingParts] = useState<ComparisonRow[]>([]);
+  
+  // State for edit mode in remarks
+  const [editingRemark, setEditingRemark] = useState<string | null>(null);
+  const [tempRemark, setTempRemark] = useState<string>('');
 
   // Store previous values for auto-uncheck detection
   const prevDataRef = useRef<Map<string, { short: number; excess: number; physicalQty: number }>>(new Map());
@@ -129,7 +146,7 @@ const DMSComparison: React.FC = () => {
       setUploadDate(res.uploadDate);
       setFileName(res.fileName);
 
-      // Persist auto-uncheck to backend (silent)
+// Persist auto-uncheck to backend (silent)
       if (rowsToAutoUncheck.length > 0) {
         rowsToAutoUncheck.forEach(row => {
           api.resolveDMSPart({
@@ -142,7 +159,45 @@ const DMSComparison: React.FC = () => {
         });
       }
 
-      // Update snapshot
+      // Auto-select (resolve) rows where DMS Qty equals Physical Qty
+      const rowsToAutoSelect: ComparisonRow[] = [];
+      const autoSelectedData = autoUncheckedData.map((row: ComparisonRow) => {
+        if (!row.isResolved && row.short === 0 && row.excess === 0 && row.dmsQty === row.physicalQty && row.dmsQty > 0) {
+          rowsToAutoSelect.push(row);
+          return { ...row, isResolved: true, wasAutoResolved: true };
+        }
+        return { ...row, wasAutoResolved: false };
+      });
+
+      // Split into physical parts (physicalQty > 0) and remaining DMS-only parts
+      const physicalParts = autoSelectedData.filter((r: ComparisonRow) => r.physicalQty > 0);
+      const dmsOnlyParts = autoSelectedData.filter((r: ComparisonRow) => r.dmsQty > 0 && r.physicalQty === 0);
+
+      setData(physicalParts);
+      setRemainingParts(dmsOnlyParts);
+      setUploadDate(res.uploadDate);
+      setFileName(res.fileName);
+
+      // Show flash message for auto-selected rows
+      if (rowsToAutoSelect.length > 0) {
+        const partNos = rowsToAutoSelect.map(r => r.partNo).join(', ');
+        setFlashMessage(`${rowsToAutoSelect.length} part(s) auto-resolved (DMS = Physical): ${partNos}`);
+      }
+
+      // Persist auto-select to backend (silent)
+      if (rowsToAutoSelect.length > 0) {
+        rowsToAutoSelect.forEach(row => {
+          api.resolveDMSPart({
+            teamId: teamId!,
+            partNo: row.partNo,
+            isResolved: true
+          }).catch(err => {
+            console.error('Failed to auto-select part', row.partNo, err);
+          });
+        });
+      }
+
+      // Update snapshot for all parts (including remaining)
       const newSnapshot = new Map();
       autoUncheckedData.forEach((row: ComparisonRow) => {
         newSnapshot.set(row.partNo, {
@@ -171,17 +226,34 @@ const DMSComparison: React.FC = () => {
     }
   };
 
-  const handleRemarkChange = async (partNo: string, newRemark: string) => {
+  const handleRemarkSave = async (partNo: string, newRemark: string) => {
     try {
       if (!teamId) return;
       setSavingRemark(partNo);
       await api.updateDMSRemark({ teamId, partNo, remark: newRemark });
       setData(prev => prev.map(row => row.partNo === partNo ? { ...row, remark: newRemark } : row));
+      
+      // Show success message
+      setFlashMessage(`Remark saved for part ${partNo}`);
+      
+      // Exit edit mode
+      setEditingRemark(null);
+      setTempRemark('');
     } catch (err: any) {
       alert(err.message || 'Failed to update remark');
     } finally {
       setSavingRemark(null);
     }
+  };
+
+  const handleRemarkEdit = (partNo: string, currentRemark: string) => {
+    setEditingRemark(partNo);
+    setTempRemark(currentRemark || '');
+  };
+
+  const handleRemarkCancel = () => {
+    setEditingRemark(null);
+    setTempRemark('');
   };
 
   const handleResolveToggle = async (partNo: string, currentStatus: boolean) => {
@@ -209,7 +281,7 @@ const DMSComparison: React.FC = () => {
       });
 
       setData(prev => prev.map(r =>
-        r.partNo === partNo ? { ...r, isResolved: !currentStatus } : r
+        r.partNo === partNo ? { ...r, isResolved: !currentStatus, wasAutoResolved: false } : r
       ));
     } catch (err: any) {
       alert(err.message || 'Failed to update resolved status');
@@ -219,7 +291,7 @@ const DMSComparison: React.FC = () => {
   };
 
   const handleExport = () => {
-    const exportData = data.map(row => ({
+    const exportData = [...data, ...remainingParts].map(row => ({
       'Part No': row.partNo,
       'Description': row.description,
       'DMS Qty': row.dmsQty,
@@ -238,11 +310,19 @@ const DMSComparison: React.FC = () => {
     saveAs(blob, `DMS_Comparison_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
   };
 
-  // Sort data: unresolved at top, resolved at bottom
+  // Sort data: unresolved at top, resolved at bottom, auto-resolved at very bottom
   const sortedData = [...data].sort((a, b) => {
+    // Both resolved: auto-resolved goes after manually resolved
+    if (a.isResolved && b.isResolved) {
+      if (a.wasAutoResolved && !b.wasAutoResolved) return 1;
+      if (!a.wasAutoResolved && b.wasAutoResolved) return -1;
+      return a.partNo.localeCompare(b.partNo);
+    }
+    // One resolved, one not: unresolved first
     if (a.isResolved !== b.isResolved) {
       return a.isResolved ? 1 : -1;
     }
+    // Both unresolved: sort by partNo
     return a.partNo.localeCompare(b.partNo);
   });
 
@@ -287,7 +367,6 @@ const DMSComparison: React.FC = () => {
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Tooltip title={tooltipMessage} placement="top" arrow>
-              {/* Span wrapper is important for tooltip on disabled elements */}
               <span>
                 <input
                   type="checkbox"
@@ -334,59 +413,117 @@ const DMSComparison: React.FC = () => {
       )
     },
     {
-  field: 'remark',
-  headerName: 'Remark',
-  width: 300,
-  renderCell: (params: GridRenderCellParams) => {
-    const row = params.row as ComparisonRow;
-    
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      // CRITICAL: Stop propagation so DataGrid doesn't intercept space/arrow keys
-      e.stopPropagation();
-    };
-    
-    const handleMouseDown = (e: React.MouseEvent) => {
-      // Prevent DataGrid from capturing mouse events
-      e.stopPropagation();
-    };
-    
-    const handleClick = (e: React.MouseEvent) => {
-      // Allow click to focus the input
-      e.stopPropagation();
-    };
-    
-    return (
-      <div 
-        onMouseDown={handleMouseDown}
-        onClick={handleClick}
-        style={{ width: '100%' }}
-      >
-        <TextField
-          variant="standard"
-          fullWidth
-          size="small"
-          placeholder={row.short > 0 || row.excess > 0 ? "Required for discrepancy" : "Optional"}
-          defaultValue={params.value}
-          onKeyDown={handleKeyDown}
-          onBlur={(e) => {
-            if (e.target.value !== params.value) {
-              handleRemarkChange(row.partNo, e.target.value);
-            }
-          }}
-          disabled={savingRemark === row.partNo}
-          InputProps={{
-            endAdornment: savingRemark === row.partNo ? <CircularProgress size={14} /> : null
-          }}
-          sx={{
-            '& .MuiInputBase-root': {
-              fontSize: '0.875rem'
-            }
-          }}
-        />
-      </div>
-    );
-  }
-}
+      field: 'remark',
+      headerName: 'Remark',
+      width: 350,
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as ComparisonRow;
+        const isEditing = editingRemark === row.partNo;
+        
+        const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') {
+            handleRemarkSave(row.partNo, tempRemark);
+          } else if (e.key === 'Escape') {
+            handleRemarkCancel();
+          }
+        };
+        
+        const handleMouseDown = (e: React.MouseEvent) => {
+          e.stopPropagation();
+        };
+        
+        const handleClick = (e: React.MouseEvent) => {
+          e.stopPropagation();
+        };
+        
+        if (isEditing) {
+          return (
+            <div 
+              onMouseDown={handleMouseDown}
+              onClick={handleClick}
+              style={{ width: '100%', display: 'flex', gap: '8px', alignItems: 'center' }}
+            >
+              <TextField
+                variant="outlined"
+                size="small"
+                fullWidth
+                value={tempRemark}
+                onChange={(e) => setTempRemark(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                placeholder={row.short > 0 || row.excess > 0 ? "Required for discrepancy" : "Optional"}
+                disabled={savingRemark === row.partNo}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    fontSize: '0.875rem'
+                  }
+                }}
+              />
+              <Tooltip title="Save">
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemarkSave(row.partNo, tempRemark)}
+                  disabled={savingRemark === row.partNo}
+                  color="primary"
+                >
+                  {savingRemark === row.partNo ? <CircularProgress size={20} /> : <SaveIcon />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Cancel">
+                <IconButton
+                  size="small"
+                  onClick={handleRemarkCancel}
+                  disabled={savingRemark === row.partNo}
+                  color="error"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Tooltip>
+            </div>
+          );
+        }
+        
+        return (
+          <Box 
+            onMouseDown={handleMouseDown}
+            onClick={handleClick}
+            sx={{ 
+              width: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              gap: 1,
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                borderRadius: 1
+              }
+            }}
+          >
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                flex: 1,
+                color: params.value ? 'inherit' : 'text.secondary',
+                fontStyle: params.value ? 'normal' : 'italic'
+              }}
+            >
+              {params.value || 'Click to add remark'}
+            </Typography>
+            <Tooltip title="Edit remark">
+              <IconButton
+                size="small"
+                onClick={() => handleRemarkEdit(row.partNo, params.value)}
+                disabled={savingRemark === row.partNo}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      }
+    }
   ];
 
   return (
@@ -409,7 +546,7 @@ const DMSComparison: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate(-1)} 
+            onClick={() => navigate(-1)}
             sx={{ mr: 2 }}
           >
             Back
@@ -418,9 +555,20 @@ const DMSComparison: React.FC = () => {
             variant="contained"
             startIcon={<DownloadIcon />}
             onClick={handleExport}
-            disabled={data.length === 0}
+            disabled={data.length === 0 && remainingParts.length === 0}
+            sx={{ mr: 2 }}
           >
             Export Excel
+          </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => setShowRemainingDialog(true)}
+            disabled={remainingParts.length === 0}
+          >
+            {remainingParts.length > 0
+              ? `View Remaining Parts (${remainingParts.length})`
+              : 'No Remaining Parts'}
           </Button>
         </Box>
       </Box>
@@ -432,9 +580,9 @@ const DMSComparison: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Paper elevation={3} sx={{ p: 2, height: 'calc(100vh - 250px)', width: '100%' }}>
+        <Paper elevation={3} sx={{ p: 4, height: 'calc(100vh - 150px)', width: '100%' }}>
           {uploadDate && (
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 0}}>
               Latest DMS Upload: {fileName} | Date: {format(new Date(uploadDate), 'dd MMM yyyy, HH:mm')}
             </Typography>
           )}
@@ -470,6 +618,70 @@ const DMSComparison: React.FC = () => {
         </Paper>
       )}
 
+      {/* Remaining Parts Dialog (DMS parts not in physical) */}
+      <Dialog
+        open={showRemainingDialog}
+        onClose={() => setShowRemainingDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Remaining Parts in DMS Not in Physical ({remainingParts.length})
+        </DialogTitle>
+        <DialogContent>
+          {remainingParts.length > 0 ? (
+            <Paper elevation={2} sx={{ p: 2, width: '100%', marginTop: 1 }}>
+              <DataGrid
+                rows={remainingParts}
+                columns={[
+                  { field: 'partNo', headerName: 'Part No', width: 150 },
+                  { field: 'description', headerName: 'Description', width: 250 },
+                  { field: 'dmsQty', headerName: 'DMS Qty', type: 'number', width: 120 },
+                  { field: 'physicalQty', headerName: 'Physical Qty', type: 'number', width: 120 },
+                  { field: 'short', headerName: 'Short', type: 'number', width: 120 },
+                  { field: 'excess', headerName: 'Excess', type: 'number', width: 120 },
+                ]}
+                pageSizeOptions={[10, 25, 50]}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                getRowClassName={(params) => {
+                  if (params.row.short > 0) return 'row-short';
+                  if (params.row.excess > 0) return 'row-excess';
+                  if (params.row.short === 0 && params.row.excess === 0) return 'row-match';
+                  return '';
+                }}
+                sx={{
+                  '& .row-short': {
+                    bgcolor: 'rgba(239, 68, 68, 0.08)',
+                  },
+                  '& .row-excess': {
+                    bgcolor: 'rgba(245, 158, 11, 0.08)',
+                  },
+                  '& .row-match': {
+                    bgcolor: 'rgba(16, 185, 129, 0.08)',
+                  },
+                  '& .MuiDataGrid-row': {
+                    minHeight: 40,
+                  },
+                }}
+              />
+            </Paper>
+          ) : (
+            <Typography variant="body1" color="textSecondary" sx={{ mt: 2 }}>
+              No remaining parts. All DMS parts have been physically counted.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRemainingDialog(false)} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Validation Error Snackbar */}
       <Snackbar
         open={!!validationError}
@@ -479,6 +691,18 @@ const DMSComparison: React.FC = () => {
       >
         <MuiAlert severity="warning" onClose={() => setValidationError(null)}>
           {validationError?.message}
+        </MuiAlert>
+      </Snackbar>
+
+      {/* Flash Message Snackbar for Auto-Resolve */}
+      <Snackbar
+        open={!!flashMessage}
+        autoHideDuration={4000}
+        onClose={() => setFlashMessage(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MuiAlert severity="info" onClose={() => setFlashMessage(null)}>
+          {flashMessage}
         </MuiAlert>
       </Snackbar>
     </Container>
