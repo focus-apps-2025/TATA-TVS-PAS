@@ -11,6 +11,7 @@ import FinalReport from "./pages/FinalReport";
 import TataFinalReport from "./pages/TataFinalReport"; 
 import ReportSelector from "./pages/ReportSelector"; // Selection page
 import LoginPage from "./pages/LoginPage";
+import DMSComparison from "./pages/DMSComparison";
 
 // Create a custom theme
 const theme = createTheme({
@@ -51,6 +52,7 @@ function App() {
             <Route path="users" element={<UserManagement />} />
             <Route path="teams" element={<TeamManagement />} />
             <Route path="teams/:teamId" element={<TeamManagement />} />
+            <Route path="teams/:teamId/dms-comparison" element={<DMSComparison />} />
             <Route path="master-desc" element={<MasterDescription />} />
             <Route path="reports" element={<ReportSelector />} /> {/* New selection page */}
             <Route path="reports/tvs" element={<FinalReport />} /> {/* TVS report */}

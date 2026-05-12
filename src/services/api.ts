@@ -120,7 +120,7 @@ interface ExportRackRow {
 
 // We create a single, configured instance of Axios
 const apiService: AxiosInstance = axios.create({
-    baseURL: 'https://pasbackend.focusengineeringapp.com/api',  //http://192.168.1.46:5000/api ,https://tata-tvs-backend.onrender.com/api
+    baseURL: 'http://localhost:5000/api',  //http://192.168.1.46:5000/api ,https://tata-tvs-backend.onrender.com/api.
     withCredentials: true, // This is CRUCIAL for sending cookies across domains
     headers: {
         'Content-Type': 'application/json',
@@ -504,9 +504,10 @@ const api = {
     deleteUploadedFile: (fileId: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/masterdesc/files/${fileId}`).then(response => response.data),
 
-    // Rack endpoints - Add these to your existing api object
     createRack: (rackData: any): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/racks', rackData).then(response => response.data),
+
+    
 
     getRacks: (params: RackParams = {}): Promise<{ racks: Rack[], totalCount: number }> =>
         apiService.get<ApiResponse>('/racks', { params }).then(response => {
@@ -715,6 +716,23 @@ const api = {
         }).then(response => response.data);
     },
 
-}
+uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<ApiResponse> =>
+         apiService.post<ApiResponse>('/dms/upload', data).then(response => response.data),
+
+     getDMSUpload: (teamId: string): Promise<ApiResponse> =>
+         apiService.get<ApiResponse>(`/dms/upload/${teamId}`).then(response => response.data),
+
+     deleteDMSUpload: (uploadId: string): Promise<ApiResponse> =>
+         apiService.delete<ApiResponse>(`/dms/upload/${uploadId}`).then(response => response.data),
+
+     getDMSComparison: (teamId: string): Promise<any> =>
+         apiService.get<ApiResponse>(`/dms/comparison/${teamId}`).then(response => response.data),
+
+     updateDMSRemark: (data: { teamId: string, partNo: string, remark: string }): Promise<ApiResponse> =>
+          apiService.put<ApiResponse>('/dms/remark', data).then(response => response.data),
+
+     resolveDMSPart: (data: { teamId: string, partNo: string, isResolved: boolean }): Promise<ApiResponse> =>
+          apiService.post<ApiResponse>('/dms/resolve', data).then(response => response.data),
+ }
 
 export default api;

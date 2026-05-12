@@ -391,6 +391,7 @@ const LoginPage: React.FC = () => {
                 <Box mt={-10} pt={0} sx={{  textAlign:'right' }}>
               <Typography variant="body2" color="text.disabled" sx={{ display: 'flex', alignItems: 'right', justifyContent: 'right', gap: 0.5,fontSize:'11px',marginTop:'-14px'  }}>
                  <Typography
+                 component="span"
                  sx={{textDecoration:'underline',fontSize:'11px'}}>Forgot password? </Typography>Contact system administrator 
               </Typography>
             </Box>

@@ -112,6 +112,7 @@ import TeamCard from '../components/team/TeamCard';
 import TeamForm from '../components/team/TeamForm';
 import MemberAssignmentDialog from '../components/team/MemberAssignmentDialog';
 import TeamDeleteDialog from '../components/team/TeamDeleteDialog';
+import DMSUploadModal from '../components/team/DMSUploadModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
@@ -286,6 +287,7 @@ const TeamManagement: React.FC = () => {
   const [teamMenuTarget, setTeamMenuTarget] = useState<Team | null>(null);
   const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState<boolean>(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
+  const [dmsUploadTeamId, setDmsUploadTeamId] = useState<string | null>(null);
 
   // Racks state
   const [racks, setRacks] = useState<Rack[]>([]);
@@ -2015,6 +2017,22 @@ const TeamManagement: React.FC = () => {
                   </Button>
                 )
               )}
+              {currentUser?.role === 'admin' && (
+                <Button
+                  variant="contained"
+                  onClick={() => navigate(`/admin/teams/${selectedTeam?._id || selectedTeam?.id}/dms-comparison`)}
+                  sx={{
+                    ml: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    color: primaryColor,
+                    '&:hover': {
+                      bgcolor: 'white'
+                    }
+                  }}
+                >
+                  DMS Comparison
+                </Button>
+              )}
             </Box>
           </Box>
         </Paper>
@@ -2515,6 +2533,16 @@ const TeamManagement: React.FC = () => {
         >
           <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit Team
         </MenuItem>
+        {currentUser?.role === 'admin' && (
+          <MenuItem
+            onClick={() => {
+              setDmsUploadTeamId(teamMenuTarget?._id || teamMenuTarget?.id || null);
+              handleTeamMenuClose();
+            }}
+          >
+            <DescriptionIcon fontSize="small" sx={{ mr: 1 }} /> Add DMS
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             openTeamDeleteDialog(teamMenuTarget!);
@@ -2543,6 +2571,18 @@ const TeamManagement: React.FC = () => {
         onGetCurrentLocation={getCurrentLocation}
         gettingLocation={gettingLocation}
         getInitials={getInitials}
+      />
+
+      <DMSUploadModal
+        open={Boolean(dmsUploadTeamId)}
+        onClose={() => setDmsUploadTeamId(null)}
+        teamId={dmsUploadTeamId || ''}
+        onSuccess={() => {
+          showSnackbar('DMS file uploaded successfully');
+          if (selectedTeam && (selectedTeam._id === dmsUploadTeamId || selectedTeam.id === dmsUploadTeamId)) {
+            // refresh data if needed
+          }
+        }}
       />
 
       {/* Team Member Selection Dialog */}

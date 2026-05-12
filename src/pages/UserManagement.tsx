@@ -116,7 +116,9 @@ interface SnackbarState {
 }
 
 // Styled components - FIXED color props
-const StyledCard = styled(Card)<{ $isCurrentUser?: boolean }>(({ theme, $isCurrentUser }) => ({
+const StyledCard = styled(Card, {
+  shouldForwardProp: (prop) => prop !== '$isCurrentUser'
+})<{ $isCurrentUser?: boolean }>(({ theme, $isCurrentUser }) => ({
   borderRadius: 12,
   boxShadow: '0 4px 12px rgba(0, 79, 152, 0.08)',
   borderLeft: $isCurrentUser ? '4px solid #004F98' : 'none',
@@ -237,7 +239,9 @@ const AppColors = {
   inactiveColor: '#94A3B8'
 };
 
-const UserCard = styled(Card)<{ $isCurrentUser?: boolean }>(({ theme, $isCurrentUser }) => ({
+const UserCard = styled(Card, {
+  shouldForwardProp: (prop) => prop !== '$isCurrentUser'
+})<{ $isCurrentUser?: boolean }>(({ theme, $isCurrentUser }) => ({
   borderRadius: 20,
   height: '100%',
   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
