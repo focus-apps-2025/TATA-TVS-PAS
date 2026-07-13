@@ -510,7 +510,7 @@ const TataFinalReport: React.FC = () => {
         // 🔴 IMPORTANT: Get MRP/Price from COUNT SHEET, not After Sheet!
         const countPriceIndex = findColumnIndex(countHeaders, [
           'mrp', 'price', 'cost', 'rate', 'unit price',
-          'net price', 'dealer price', 'amount', 'value', 'NDP'
+          'net price', 'dealer price', 'amount', 'value', 'NEW NDP', 'NDP'
         ]);
 
         const countDescIndex = findColumnIndex(countHeaders, [
@@ -758,7 +758,7 @@ const TataFinalReport: React.FC = () => {
         ]);
 
         const onHandPriceIndex = findColumnIndex(onHandHeaders, [
-          'weighted average', 'weightedaverage', 'avg price', 'average price','NDP'
+          'weighted average', 'weightedaverage', 'avg price', 'average price','NEW NDP', 'NDP'
         ]);
 
         const onHandDescIndex = findColumnIndex(onHandHeaders, [
@@ -766,7 +766,7 @@ const TataFinalReport: React.FC = () => {
         ]);
 
         const onHandCategoryIndex = findColumnIndex(onHandHeaders, [
-          'category', 'product category','CATEGORY','LOCATION'
+          'category', 'product category','CATEGORY'
         ]);
 
         // ============================================
@@ -1159,7 +1159,7 @@ const TataFinalReport: React.FC = () => {
           return rowCategory.includes('ACCESS');
         }
         if (searchCategory === 'Oils') {
-          return rowCategory.includes('Oils')
+          return rowCategory.includes('OIL')
         }
 
         return rowCategory === searchCategory;

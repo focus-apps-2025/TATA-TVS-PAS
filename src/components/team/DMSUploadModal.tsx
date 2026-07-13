@@ -27,8 +27,22 @@ interface ExistingUpload {
   _id: string;
   fileName: string;
   createdAt: string;
-  items: Array<{ partNo: string; quantity: number; description?: string }>;
+  items: Array<{ partNo: string; quantity: number; description?: string; ndp?: number; mrp?: number }>;
 }
+
+const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const getRowValue = (row: any, aliases: string[]) => {
+  const normalizedAliases = aliases.map(normalizeHeader);
+  const key = Object.keys(row).find((header) => normalizedAliases.includes(normalizeHeader(header)));
+  return key ? row[key] : undefined;
+};
+
+const toNumber = (value: any): number => {
+  if (value === undefined || value === null || value === '') return 0;
+  const parsed = Number(String(value).replace(/,/g, '').trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -87,22 +101,30 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
           const rawJson = XLSX.utils.sheet_to_json(sheet);
 
           const items = rawJson.map((row: any) => {
-            // Adjust to the exact Excel headers for DMS. Might be "Part No" or "Part Number"
-            const partNo = row['Part No'] || row['Part Number'] || row['partNo'] || String(Object.values(row)[0] || '');
-            const rawQty = row['Quantity'] ?? row['Qty'] ?? row['quantity'] ?? Object.values(row)[1];
-            const parsedQty = Number(rawQty);
-            const quantity = isNaN(parsedQty) ? 0 : parsedQty;
-            const description = row['Description'] || row['Desc'] || row['description'] || '';
+            const partNo = getRowValue(row, ['Part No', 'PartNo', 'Part Number', 'Part Code', 'Item']);
+            const rawQty = getRowValue(row, ['Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty']);
+            const rawNdp = getRowValue(row, ['NEW NDP', 'NDP', 'Unit Value', 'Unit Price', 'Net Dealer Price']);
+            const rawMrp = getRowValue(row, ['NEW MRP', 'MRP', 'Total Value', 'Max Retail Price', 'Retail Price']);
+            const description = getRowValue(row, ['Description', 'Desc', 'Part Description', 'Material Description', 'Item Description']) || '';
             
             return {
-              partNo: String(partNo).trim(),
-              quantity,
+              partNo: String(partNo || '').trim(),
+              quantity: toNumber(rawQty),
+              ndp: toNumber(rawNdp),
+              mrp: toNumber(rawMrp),
               description: String(description).trim()
             };
           }).filter(item => item.partNo);
 
           if (items.length === 0) {
             setError('No valid data found in the Excel file.');
+            setLoading(false);
+            return;
+          }
+
+          const hasMissingRequiredValues = items.some(item => !item.partNo || item.quantity === 0);
+          if (hasMissingRequiredValues) {
+            setError('DMS file must contain Part No and Quantity/Total Stock columns with valid values.');
             setLoading(false);
             return;
           }
@@ -228,7 +250,7 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
           )}
           
           <Typography variant="caption" color="textSecondary" sx={{ mt: 1, textAlign: 'center' }}>
-            Expected columns: Part No, Quantity, Description (optional)
+            Required columns: Part No, Quantity/Total Stock. Optional: NDP/Unit Value, MRP/Total Value
           </Typography>
         </Box>
       </DialogContent>

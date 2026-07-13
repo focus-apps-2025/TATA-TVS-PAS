@@ -14,6 +14,8 @@ import {
   DialogActions,
   LinearProgress,
   Grid,
+  TextField,
+  MenuItem,
   Avatar,
   CircularProgress,
   Tooltip,
@@ -24,10 +26,12 @@ import {
   type AlertColor
 } from '@mui/material';
 import {
+  AddCircleOutline,
   Refresh,
   UploadFile,
   RuleFolder,
   Dataset,
+  Download,
   DeleteOutline,
   Warning,
   CheckCircle
@@ -52,6 +56,14 @@ interface SnackbarState {
 interface DeleteDialogState {
   open: boolean;
   file: UploadedFile | null;
+}
+
+interface ManualPartForm {
+  auditType: 'TVS' | 'TATA';
+  partNo: string;
+  description: string;
+  ndp: string;
+  mrp: string;
 }
 
 interface ColumnIndexMap {
@@ -81,6 +93,13 @@ import { styled } from '@mui/material/styles';
 
 const PRIMARY = '#004F98';
 const PER_PAGE = 8;
+const initialManualPartForm: ManualPartForm = {
+  auditType: 'TVS',
+  partNo: '',
+  description: '',
+  ndp: '',
+  mrp: ''
+};
 
 const HeroSection = styled(Box)(({ theme }) => ({
   background: 'linear-gradient(135deg, #004F98 0%, #002D5B 100%)',
@@ -120,6 +139,9 @@ const MasterDescriptionScreen: React.FC = () => {
     open: false,
     file: null
   });
+  const [manualPartOpen, setManualPartOpen] = useState<boolean>(false);
+  const [manualPartForm, setManualPartForm] = useState<ManualPartForm>(initialManualPartForm);
+  const [isSavingManualPart, setIsSavingManualPart] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -317,6 +339,58 @@ const MasterDescriptionScreen: React.FC = () => {
     return parseFloat(s) || 0.0;
   };
 
+  const updateManualPartForm = (field: keyof ManualPartForm, value: string): void => {
+    setManualPartForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const closeManualPartModal = (): void => {
+    if (isSavingManualPart) return;
+    setManualPartOpen(false);
+    setManualPartForm(initialManualPartForm);
+  };
+
+  const saveManualPart = async (): Promise<void> => {
+    const partNo = manualPartForm.partNo.trim();
+    const description = manualPartForm.description.trim();
+    const ndp = Number(manualPartForm.ndp);
+    const mrp = Number(manualPartForm.mrp);
+
+    if (!partNo || !description) {
+      showSnackbar('Part No and description are required', 'error');
+      return;
+    }
+
+    if (!Number.isFinite(ndp) || !Number.isFinite(mrp)) {
+      showSnackbar('Enter valid NDP and MRP values', 'error');
+      return;
+    }
+
+    setIsSavingManualPart(true);
+    try {
+      const result = await api.addManualMasterPart({
+        auditType: manualPartForm.auditType,
+        partNo,
+        description,
+        ndp,
+        mrp
+      });
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save part');
+      }
+
+      showSnackbar(`${manualPartForm.auditType} part saved`, 'success');
+      setManualPartOpen(false);
+      setManualPartForm(initialManualPartForm);
+      await fetchUploadedFiles();
+    } catch (err) {
+      console.error('manual part save error', err);
+      showSnackbar('Failed to save manual part', 'error');
+    } finally {
+      setIsSavingManualPart(false);
+    }
+  };
+
   // ---------- delete flow ----------
   const confirmDelete = async (): Promise<void> => {
     const id = deleteDialog.file?._id;
@@ -334,6 +408,35 @@ const MasterDescriptionScreen: React.FC = () => {
       showSnackbar('Delete failed', 'error');
     } finally {
       setDeleteDialog({ open: false, file: null });
+    }
+  };
+
+  const handleDownloadFile = async (file: UploadedFile): Promise<void> => {
+    const id = file._id;
+    if (!id) {
+      showSnackbar('Download failed: missing file id', 'error');
+      return;
+    }
+
+    try {
+      const blob = await api.downloadUploadedFile(id);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const baseFilename = file.filename || 'master-descriptions';
+      const filename = baseFilename.toLowerCase().endsWith('.xlsx')
+        ? baseFilename
+        : `${baseFilename.replace(/\.(xls|xlsx)$/i, '')}.xlsx`;
+
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      showSnackbar('Download started', 'success');
+    } catch (err) {
+      console.error('download error', err);
+      showSnackbar('Download failed', 'error');
     }
   };
 
@@ -356,6 +459,20 @@ const MasterDescriptionScreen: React.FC = () => {
             <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 100, maxWidth: 700, mx: 'auto', mb: 1, color: 'white', fontSize: { xs: '1rem', md: '1rem' } }}>
               Upload and manage your global part description database
             </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddCircleOutline />}
+              onClick={() => setManualPartOpen(true)}
+              sx={{
+                mt: 2,
+                bgcolor: 'white',
+                color: PRIMARY,
+                fontWeight: 700,
+                '&:hover': { bgcolor: '#EAF4FF' }
+              }}
+            >
+              Add Part No
+            </Button>
           </Box>
         </Container>
       </HeroSection>
@@ -489,7 +606,15 @@ const MasterDescriptionScreen: React.FC = () => {
                                 </Typography>
                               </Box>
 
-                              <Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Tooltip title="Download file">
+                                  <IconButton
+                                    onClick={() => handleDownloadFile(file)}
+                                    aria-label={`download-${file.filename}`}
+                                  >
+                                    <Download />
+                                  </IconButton>
+                                </Tooltip>
                                 <Tooltip title="Delete file">
                                   <IconButton
                                     onClick={() => setDeleteDialog({ open: true, file })}
@@ -562,6 +687,81 @@ const MasterDescriptionScreen: React.FC = () => {
           </Button>
           <Button variant="contained" color="error" onClick={confirmDelete}>
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* manual part modal */}
+      <Dialog
+        open={manualPartOpen}
+        onClose={closeManualPartModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Part No</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                fullWidth
+                label="Audit Type"
+                value={manualPartForm.auditType}
+                onChange={(event) => updateManualPartForm('auditType', event.target.value)}
+              >
+                <MenuItem value="TVS">TVS</MenuItem>
+                <MenuItem value="TATA">TATA</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Part No"
+                value={manualPartForm.partNo}
+                onChange={(event) => updateManualPartForm('partNo', event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                label="Material Description"
+                value={manualPartForm.description}
+                onChange={(event) => updateManualPartForm('description', event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="New NDP"
+                type="number"
+                value={manualPartForm.ndp}
+                onChange={(event) => updateManualPartForm('ndp', event.target.value)}
+                inputProps={{ min: 0, step: '0.01' }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="New MRP"
+                type="number"
+                value={manualPartForm.mrp}
+                onChange={(event) => updateManualPartForm('mrp', event.target.value)}
+                inputProps={{ min: 0, step: '0.01' }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeManualPartModal} disabled={isSavingManualPart}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={saveManualPart}
+            disabled={isSavingManualPart}
+            sx={{ bgcolor: PRIMARY }}
+          >
+            {isSavingManualPart ? 'Saving...' : 'Save Part'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -157,9 +157,14 @@ const TeamCard: React.FC<TeamCardProps> = ({
             )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" color="textSecondary">
-                {team.members?.length || 0} Members
-              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="caption" color="textSecondary">
+                  {team.members?.length || 0} Members
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {team.siteManagers?.length || 0} Site Manager(s)
+                </Typography>
+              </Box>
               <Typography variant="caption" sx={{ color: primaryColor, fontWeight: 700 }}>
                 Click to view racks →
               </Typography>

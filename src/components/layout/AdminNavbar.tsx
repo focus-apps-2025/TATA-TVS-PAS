@@ -130,13 +130,19 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
   // Navigation Items
-  const navigationItems: NavigationItem[] = [
+  const allNavigationItems: NavigationItem[] = [
     { label: "Dashboard", icon: DashboardIcon, path: "/admin" },
     { label: "Users", icon: PeopleIcon, path: "/admin/users" },
     { label: "Teams", icon: GroupsIcon, path: "/admin/teams" },
     { label: "Master Data", icon: DescriptionIcon, path: "/admin/master-desc" },
     { label: "Reports", icon: AnalyticsIcon, path: "/admin/reports" }
   ];
+  const navigationItems = allNavigationItems.filter((item) => {
+    if (userProfile?.role === 'site_manager' && ['Users', 'Master Data', 'Reports'].includes(item.label)) return false;
+    if (userProfile?.role === 'team_leader' && ['Users', 'Master Data'].includes(item.label)) return false;
+    // if (userProfile?.role === 'team_assistant' && !['Dashboard', 'Teams'].includes(item.label)) return false;
+    return true;
+  });
 
   // Effect to set active tab based on current route
   useEffect(() => {

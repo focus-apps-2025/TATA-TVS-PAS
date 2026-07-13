@@ -73,6 +73,12 @@ interface TeamFormProps {
   onTeamLeaderChange: (e: any) => void;
   selectedTeamMembers: User[];
   onOpenMemberDialog: () => void;
+  onRemoveTeamMember: (memberId: string) => void;
+  selectedSiteManagers: User[];
+  onOpenSiteManagerDialog: () => void;
+  onRemoveSiteManager: (managerId: string) => void;
+  // selectedTeamAssistants: User[];
+  // onOpenTeamAssistantDialog: () => void;
   onGetCurrentLocation: () => void;
   gettingLocation: boolean;
   getInitials: (name: string) => string;
@@ -93,6 +99,12 @@ const TeamForm: React.FC<TeamFormProps> = ({
   onTeamLeaderChange,
   selectedTeamMembers,
   onOpenMemberDialog,
+  onRemoveTeamMember,
+  selectedSiteManagers,
+  onOpenSiteManagerDialog,
+  onRemoveSiteManager,
+  // selectedTeamAssistants,
+  // onOpenTeamAssistantDialog,
   onGetCurrentLocation,
   gettingLocation,
   getInitials
@@ -431,6 +443,8 @@ const TeamForm: React.FC<TeamFormProps> = ({
                             avatar={<Avatar>{getInitials(member.name || '')}</Avatar>}
                             label={member.name}
                             variant="outlined"
+                            onDelete={() => onRemoveTeamMember(member._id || member.id || '')}
+                            deleteIcon={<CloseIcon />}
                             sx={{ borderRadius: 2 }}
                           />
                         ))}
@@ -441,6 +455,80 @@ const TeamForm: React.FC<TeamFormProps> = ({
                       </Typography>
                     )}
                   </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: 2 }}>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        Site Managers ({selectedSiteManagers.length})
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={onOpenSiteManagerDialog}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        Add Managers
+                      </Button>
+                    </Box>
+                    
+                    {selectedSiteManagers.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedSiteManagers.map((manager) => (
+                          <Chip
+                            key={manager._id || manager.id}
+                            avatar={<Avatar>{getInitials(manager.name || '')}</Avatar>}
+                            label={manager.name}
+                            variant="outlined"
+                            onDelete={() => onRemoveSiteManager(manager._id || manager.id || '')}
+                            deleteIcon={<CloseIcon />}
+                            sx={{ borderRadius: 2 }}
+                          />
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                        No site managers selected yet.
+                      </Typography>
+                    )}
+                  </Grid>
+
+                  {/* 
+                  <Grid size={{ xs: 12 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: 2 }}>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        Team Assistants ({selectedTeamAssistants.length})
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={onOpenTeamAssistantDialog}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        Add Assistants
+                      </Button>
+                    </Box>
+                    
+                    {selectedTeamAssistants.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedTeamAssistants.map((assistant) => (
+                          <Chip
+                            key={assistant._id || assistant.id}
+                            avatar={<Avatar>{getInitials(assistant.name || '')}</Avatar>}
+                            label={assistant.name}
+                            variant="outlined"
+                            sx={{ borderRadius: 2 }}
+                          />
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                        No team assistants selected yet.
+                      </Typography>
+                    )}
+                  </Grid>
+                  */}
                 </Grid>
               </CardContent>
             </StyledCard>

@@ -31,6 +31,10 @@ interface MemberAssignmentDialogProps {
   backgroundColor: string;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  title?: string;
+  subtitle?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
 }
 
 const MemberAssignmentDialog: React.FC<MemberAssignmentDialogProps> = ({
@@ -44,7 +48,11 @@ const MemberAssignmentDialog: React.FC<MemberAssignmentDialogProps> = ({
   secondaryColor,
   backgroundColor,
   searchQuery,
-  onSearchChange
+  onSearchChange,
+  title = 'Select Team Members',
+  subtitle = 'Select team members from the available list',
+  searchPlaceholder = 'Search members...',
+  emptyText = 'No available team members found'
 }) => {
   const filteredMembers = availableMembers.filter(member =>
     (member.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
@@ -68,11 +76,11 @@ const MemberAssignmentDialog: React.FC<MemberAssignmentDialogProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <GroupIcon sx={{ color: primaryColor, mr: 2 }} />
-            <Typography variant="h6">Select Team Members</Typography>
+            <Typography variant="h6">{title}</Typography>
           </Box>
           <TextField
             size="small"
-            placeholder="Search members..."
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             InputProps={{
@@ -84,14 +92,14 @@ const MemberAssignmentDialog: React.FC<MemberAssignmentDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-          Select team members from the available list
+          {subtitle}
         </Typography>
 
         {filteredMembers.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <GroupIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {availableMembers.length === 0 ? "No available team members found" : "No members match your search"}
+              {availableMembers.length === 0 ? emptyText : "No users match your search"}
             </Typography>
           </Box>
         ) : (

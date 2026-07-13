@@ -323,7 +323,7 @@ const UserManagement: React.FC = () => {
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  const roles: Role[] = [
+  const allRoles: Role[] = [
     { 
       id: 'admin', 
       title: 'Administrator', 
@@ -339,13 +339,31 @@ const UserManagement: React.FC = () => {
       icon: PersonIcon 
     },
     { 
+      id: 'site_manager', 
+      title: 'Site Manager', 
+      description: 'Oversight role for teams', 
+      color: '#F59E0B', 
+      icon: PersonIcon 
+    },
+    { 
       id: 'team_member', 
       title: 'Team Member', 
       description: 'Standard user with basic system access', 
       color: '#6366F1', 
       icon: PersonIcon 
-    }
+    }/*,
+    { 
+      id: 'team_assistant', 
+      title: 'Team Assistant', 
+      description: 'Assists team leader, can upload images', 
+      color: '#8B5CF6', 
+      icon: PersonIcon 
+    }*/
   ];
+
+  const roles = currentUser?.role === 'admin' 
+    ? allRoles 
+    : allRoles.filter(r => ['team_member'/*, 'team_assistant'*/].includes(r.id));
 
   const isCreating: boolean = !editingUser;
 
@@ -617,8 +635,12 @@ const UserManagement: React.FC = () => {
         return ['#004F98', '#0066CC'];
       case 'team_leader':
         return ['#10B981', '#0E9F6E'];
+      case 'site_manager':
+        return ['#F59E0B', '#D97706'];
       case 'team_member':
         return ['#6366F1', '#4F46E5'];
+      // case 'team_assistant':
+      //   return ['#8B5CF6', '#7C3AED'];
       default:
         return ['#94A3B8', '#64748B'];
     }
@@ -630,8 +652,12 @@ const UserManagement: React.FC = () => {
         return AppColors.primaryColor;
       case 'team_leader':
         return AppColors.successColor;
+      case 'site_manager':
+        return '#F59E0B';
       case 'team_member':
         return '#6366F1';
+      // case 'team_assistant':
+      //   return '#8B5CF6';
       default:
         return AppColors.textMuted;
     }

@@ -457,13 +457,13 @@ const StockComparison: React.FC = () => {
         const partNoDmsIndex = findColumn(dmsHeaders, ['part no', 'partno', 'part number', 'part code', 'item']);
         const qtyDmsIndex = findColumn(dmsHeaders, ['free qty', 'qty', 'quantity', 'balance']);
         const descDmsIndex = findColumn(dmsHeaders, ['description', 'material description', 'item description']);
-        const ndpDmsIndex = findColumn(dmsHeaders, ['ndp', 'net dealer price', 'unit price']);
+        const ndpDmsIndex = findColumn(dmsHeaders, ['new ndp', 'ndp', 'net dealer price', 'unit price']);
         const locationDmsIndex = findColumn(dmsHeaders, ['location name', 'location']);
 
         const partNoPhysicalIndex = findColumn(physicalHeaders, ['part no', 'partno', 'part number', 'part code', 'item']);
         const qtyPhysicalIndex = findColumn(physicalHeaders, ['qty', 'quantity', 'stock', 'phy qty', 'count']);
-        const ndpIndex = findColumn(physicalHeaders, ['ndp', 'net dealer price', 'unit price']);
-        const mrpIndex = findColumn(physicalHeaders, ['mrp', 'max retail price', 'retail price']);
+        const ndpIndex = findColumn(physicalHeaders, ['new ndp', 'ndp', 'net dealer price', 'unit price']);
+        const mrpIndex = findColumn(physicalHeaders, ['new mrp', 'mrp', 'max retail price', 'retail price']);
         const descIndex = findColumn(physicalHeaders, ['description', 'material description', 'item description']);
         const locationPhysicalIndex = findColumn(physicalHeaders, ['location', 'bin', 'storage']);
         const rackIndex = findColumn(physicalHeaders, ['rack', 'shelf', 'row']);
@@ -714,7 +714,7 @@ const StockComparison: React.FC = () => {
           throw new Error('No valid data found in the Before file. Please check that the file contains part numbers and positive quantities.');
         }*/
 
-        const adjustedDmsMap = new Map(processedDmsMap);
+        const adjustedDmsMap = new Map(initialDmsMapForReport);
         let matchedPartCount = 0;
         let totalSubtractedQty = 0;
 
@@ -2718,9 +2718,9 @@ const applyRawDataStyling = (worksheet: ExcelJS.Worksheet, headerColor: string =
                   {/* Stock Comparison Check */}
                   {reportData && reportData.length > 1 && (
                     <Alert
-                      severity={Math.abs(reportData[1][4] - tvsStockTotal) <= 0.01 ? "success" : "warning"}
-                      sx={{ mb: 3 }}
-                      icon={Math.abs(reportData[1][4] - tvsStockTotal) <= 0.01 ? <CheckCircle /> : <Warning />}
+                    severity={Math.abs(reportData[1][5] - tvsStockTotal) <= 0.01 ? "success" : "warning"}
+                    sx={{ mb: 3 }}
+                    icon={Math.abs(reportData[1][5] - tvsStockTotal) <= 0.01 ? <CheckCircle /> : <Warning />}
                     >
                       <Box>
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>

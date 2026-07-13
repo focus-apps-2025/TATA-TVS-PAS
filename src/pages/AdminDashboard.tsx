@@ -163,6 +163,7 @@ const AdminDashboard: React.FC = () => {
     masterItems: 0
   });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const isSiteManager = userProfile?.role === 'site_manager';
 
   const managementTools: ManagementTool[] = [
     {
@@ -201,14 +202,22 @@ const AdminDashboard: React.FC = () => {
       path: '/admin/reports',
       status: 'Ready'
     }
-  ];
+  ].filter((tool) => {
+    if (isSiteManager) return tool.title === 'Team Management';
+    if (userProfile?.role === 'team_leader') return tool.title !== 'User Management' && tool.title !== 'Master Descriptions';
+    return true;
+  });
 
   const quickActions = [
     { title: 'Create New Team', icon: GroupsIcon, path: '/admin/teams?action=new', color: '#3B82F6' },
     { title: 'Upload Master Data', icon: DescriptionIcon, path: '/admin/master-desc', color: '#10B981' },
     { title: 'Generate Report', icon: AnalyticsIcon, path: '/admin/reports', color: '#F59E0B' },
     { title: 'Audit Logs', icon: AdminShieldIcon, path: '/admin', color: '#6366F1' },
-  ];
+  ].filter(() => {
+    if (isSiteManager) return false;
+    if (userProfile?.role === 'team_leader') return false;
+    return true;
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -226,17 +235,19 @@ const AdminDashboard: React.FC = () => {
   const loadDashboardData = async (): Promise<void> => {
     try {
       setIsDataLoading(true);
+      const currentUser = await authManager.getCurrentUser();
+      const siteManagerMode = currentUser?.role === 'site_manager';
       const [users, teams, racks, masterData] = await Promise.all([
-        api.getAllUsers(),
+        siteManagerMode ? Promise.resolve([]) : api.getAllUsers(),
         api.getTeams(),
         api.getRacks({ limit: 1 }),
-        api.getUploadedFilesMetadata()
+        siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata()
       ]);
       setStats({
         users: users?.length || 0,
         teams: teams?.length || 0,
         totalRacks: racks?.totalCount || 0,
-        masterItems: (masterData as any)?.data?.length || 0
+        masterItems: siteManagerMode ? 0 : (masterData as any)?.data?.length || 0
       });
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
@@ -356,15 +367,17 @@ const AdminDashboard: React.FC = () => {
         
         {/* Statistics Section */}
         <Grid container spacing={3} sx={{ mb: 6 }}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard 
-              title="Total Users"
-              value={stats.users}
-              icon={PeopleIcon}
-              color="#004F98"
-              trend="+12%"
-            />
-          </Grid>
+          {!isSiteManager && (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <StatsCard
+                title="Total Users"
+                value={stats.users}
+                icon={PeopleIcon}
+                color="#004F98"
+                trend="+12%"
+              />
+            </Grid>
+          )}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatsCard 
               title="Active Teams"
@@ -375,15 +388,17 @@ const AdminDashboard: React.FC = () => {
             />
           </Grid>
          
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard 
-              title="Master Items"
-              value={stats.masterItems}
-              icon={DescriptionIcon}
-              color="#F59E0B"
-              trend="Sync"
-            />
-          </Grid>
+          {!isSiteManager && (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <StatsCard
+                title="Master Items"
+                value={stats.masterItems}
+                icon={DescriptionIcon}
+                color="#F59E0B"
+                trend="Sync"
+              />
+            </Grid>
+          )}
         </Grid>
 
         {/* Management Tools Section */}

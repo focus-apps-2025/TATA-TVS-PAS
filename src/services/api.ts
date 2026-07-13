@@ -46,6 +46,7 @@ export interface Team {
     auditType?: 'TVS' | 'TATA';
     teamLeader?: User | string | null;
     members?: (User | string)[];
+    teamAssistants?: (User | string)[];
     createdAt?: string;
     updatedAt?: string;
     _isFinishWorkAction?: boolean;
@@ -54,6 +55,19 @@ export interface Team {
         onConfirm: () => void;
     };
     [key: string]: any;
+}
+
+export interface TeamImageUploadData {
+    imageType: 'front' | 'group' | 'before' | 'after';
+    imageData: string;
+    remarks?: string;
+    category?: string;
+}
+
+export interface CompletionLetterUploadData {
+    fileData: string;
+    originalName?: string;
+    remarks?: string;
 }
 
 export interface Rack {
@@ -111,6 +125,8 @@ export interface TeamFormData {
     isNewSite: boolean;
     auditType: 'TVS' | 'TATA';
     members?: string[];
+    siteManagers?: string[];
+    teamAssistants?: string[];
     leader?: string;
 }
 
@@ -118,9 +134,15 @@ interface ExportRackRow {
     [key: string]: any;
 }
 
+const apiBaseUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV
+        ? 'http://localhost:5000/api'
+        : 'https://tata-tvs-backend-nags.onrender.com/api');
+
 // We create a single, configured instance of Axios
 const apiService: AxiosInstance = axios.create({
-    baseURL: 'https://pasbackend.focusengineeringapp.com/api',  //http://192.168.1.46:5000/api ,https://tata-tvs-backend.onrender.com/api.,
+    baseURL: apiBaseUrl,
     withCredentials: true, // This is CRUCIAL for sending cookies across domains
     headers: {
         'Content-Type': 'application/json',
@@ -229,7 +251,7 @@ const api = {
                 message = error.response.data?.message || `Server error: ${error.response.status}`;
             } else if (error.request) {
                 // Request was made but no response received (Network Error)
-                message = 'Network error: Cannot reach the server. Please ensure the backend is running at http://localhost:5000';
+                message = `Network error: Cannot reach the server at ${apiBaseUrl.replace(/\/api\/?$/, '')}. Please ensure the backend is running.`;
             } else {
                 // Something else happened
                 message = error.message;
@@ -498,8 +520,22 @@ const api = {
             filename
         }).then(response => response.data),
 
+    addManualMasterPart: (data: {
+        auditType: 'TVS' | 'TATA';
+        partNo: string;
+        description: string;
+        ndp: number;
+        mrp: number;
+    }): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/masterdesc/manual-part', data).then(response => response.data),
+
     getUploadedFilesMetadata: (): Promise<ApiResponse> =>
         apiService.get<ApiResponse>('/masterdesc/files').then(response => response.data),
+
+    downloadUploadedFile: (fileId: string): Promise<Blob> =>
+        apiService.get(`/masterdesc/files/${fileId}/download`, {
+            responseType: 'blob'
+        }).then(response => response.data),
 
     deleteUploadedFile: (fileId: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/masterdesc/files/${fileId}`).then(response => response.data),
@@ -684,6 +720,30 @@ const api = {
                 };
             }),
 
+    uploadTeamImage: (teamId: string, data: TeamImageUploadData): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>(`/teams/${teamId}/images`, data).then(response => response.data),
+
+    deleteTeamImage: (teamId: string, imageId: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/teams/${teamId}/images/${imageId}`).then(response => response.data),
+
+    deleteTeamImageRemark: (teamId: string, imageId: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/teams/${teamId}/images/${imageId}/remark`).then(response => response.data),
+
+    updateTeamImageRemark: (teamId: string, imageId: string, remarks: string): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/teams/${teamId}/images/${imageId}/remark`, { remarks }).then(response => response.data),
+
+    uploadCompletionLetter: (teamId: string, data: CompletionLetterUploadData): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>(`/teams/${teamId}/completion-letter`, data).then(response => response.data),
+
+    deleteCompletionLetter: (teamId: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/teams/${teamId}/completion-letter`).then(response => response.data),
+
+    deleteCompletionLetterRemark: (teamId: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/teams/${teamId}/completion-letter/remark`).then(response => response.data),
+
+    updateCompletionLetterRemark: (teamId: string, remarks: string): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/teams/${teamId}/completion-letter/remark`, { remarks }).then(response => response.data),
+
     getTeamWorkStatus: (teamId: string): Promise<boolean> =>
         apiService.get<ApiResponse<{ isSubmitted: boolean }>>(`/teams/${teamId}/status`)
             .then(response => {
@@ -731,8 +791,20 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
      updateDMSRemark: (data: { teamId: string, partNo: string, remark: string }): Promise<ApiResponse> =>
           apiService.put<ApiResponse>('/dms/remark', data).then(response => response.data),
 
+    updateDMSPhysicalQty: (data: { teamId: string, updates: Array<{ partNo: string, physicalQty: number }> }): Promise<ApiResponse> =>
+         apiService.put<ApiResponse>('/dms/physical-qty', data).then(response => response.data),
+
      resolveDMSPart: (data: { teamId: string, partNo: string, isResolved: boolean }): Promise<ApiResponse> =>
           apiService.post<ApiResponse>('/dms/resolve', data).then(response => response.data),
+
+    getBeforeAfterAudits: (teamId: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>(`/before-after-audits/${teamId}`).then(response => response.data),
+
+    saveBeforeAfterAudit: (data: { teamId: string, auditType: 'before' | 'after', fileName?: string, items: any[] }): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>('/before-after-audits', data).then(response => response.data),
+
+    deleteBeforeAfterAudit: (teamId: string, auditType: 'before' | 'after'): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/before-after-audits/${teamId}/${auditType}`).then(response => response.data),
  }
 
 export default api;

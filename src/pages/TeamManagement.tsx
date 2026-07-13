@@ -95,7 +95,9 @@ import {
   MyLocation as MyLocationIcon,
   NewReleases as NewReleasesIcon,
   AccessTime as AccessTimeIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Collections as CollectionsIcon,
+  TableChart as TableChartIcon
 } from '@mui/icons-material';
 import { styled, alpha } from '@mui/material/styles';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
@@ -113,6 +115,9 @@ import TeamForm from '../components/team/TeamForm';
 import MemberAssignmentDialog from '../components/team/MemberAssignmentDialog';
 import TeamDeleteDialog from '../components/team/TeamDeleteDialog';
 import DMSUploadModal from '../components/team/DMSUploadModal';
+import BeforeAfterAuditUploadModal from '../components/team/BeforeAfterAuditUploadModal';
+import TeamImagesModal from '../components/team/TeamImagesModal';
+import PostDocumentDownloadModal from '../components/team/PostDocumentDownloadModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
@@ -160,6 +165,15 @@ const warningColor = '#F59E0B';
 const errorColor = '#EF4444';
 const backgroundColor = '#F8FAFC';
 const surfaceColor = '#FFFFFF';
+
+const TVS_LOCATION_OPTIONS = ['LUBRICANTS', 'PARTS', 'KIT', 'CONSUMER PRODUCTS', 'LOCAL ITEMS', 'SPARES', 'ACCESSORIES', '3W', '2W'];
+const TATA_LOCATION_OPTIONS = ['LUBRICANT', 'PARTS', 'CONSUMER PRODUCTS', 'LOCAL ITEMS', 'SPARES', 'ACCESSORIES', 'FIAT SPARES', 'NANO SPARES', 'TYRE', 'BATTERY', 'DAMAGED', 'TOOLS', 'OILS', '1-NORMAL PARTS', '9-MISCELLENEOUS', '2-EXCHANGE PARTS', '3-RETROFIT PARTS', 'LOCAL PARTS', '5-RIMSWHEELS', '7-BMW LIFESTYLE', '8-TIRES'];
+
+const getLocationOptions = (auditType?: string): string[] => {
+  if (auditType === 'TATA') return TATA_LOCATION_OPTIONS;
+  if (auditType === 'TVS') return TVS_LOCATION_OPTIONS;
+  return [];
+};
 
 // Styled components (same as before, but with TypeScript)
 const StyledCard = styled(Card, {
@@ -265,6 +279,7 @@ const TeamManagement: React.FC = () => {
 
   // State for authentication and user
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const canCreateTeam = currentUser?.role !== 'site_manager';
 
   // Global state
   const [loading, setLoading] = useState<boolean>(true);
@@ -288,6 +303,9 @@ const TeamManagement: React.FC = () => {
   const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState<boolean>(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
   const [dmsUploadTeamId, setDmsUploadTeamId] = useState<string | null>(null);
+  const [imagesModalTeam, setImagesModalTeam] = useState<Team | null>(null);
+  const [postDocumentTeam, setPostDocumentTeam] = useState<Team | null>(null);
+  const [auditUploadTeam, setAuditUploadTeam] = useState<Team | null>(null);
 
   // Racks state
   const [racks, setRacks] = useState<Rack[]>([]);
@@ -361,6 +379,14 @@ const TeamManagement: React.FC = () => {
   const [selectedTeamLeader, setSelectedTeamLeader] = useState<User | null>(null);
   const [memberDialogOpen, setMemberDialogOpen] = useState<boolean>(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState<string>('');
+  const [availableSiteManagers, setAvailableSiteManagers] = useState<User[]>([]);
+  const [selectedSiteManagers, setSelectedSiteManagers] = useState<User[]>([]);
+  const [siteManagerDialogOpen, setSiteManagerDialogOpen] = useState<boolean>(false);
+  const [siteManagerSearchQuery, setSiteManagerSearchQuery] = useState<string>('');
+  // const [availableTeamAssistants, setAvailableTeamAssistants] = useState<User[]>([]);
+  // const [selectedTeamAssistants, setSelectedTeamAssistants] = useState<User[]>([]);
+  // const [teamAssistantDialogOpen, setTeamAssistantDialogOpen] = useState<boolean>(false);
+  // const [teamAssistantSearchQuery, setTeamAssistantSearchQuery] = useState<string>('');
   const [gettingLocation, setGettingLocation] = useState<boolean>(false);
 
   // Initialize and load data
@@ -436,8 +462,13 @@ const TeamManagement: React.FC = () => {
       // Fetch all required data in parallel for much faster performance
       const [user, teamsData, usersData] = await Promise.all([
         authManager.getCurrentUser(),
-        api.getTeams(),
-        api.getAllUsers()
+        api.getTeams().catch(err => {
+          throw err; // Re-throw to be caught by the outer catch
+        }),
+        api.getAllUsers().catch((err) => {
+          console.warn('Could not fetch all users (likely due to role permissions):', err);
+          return [];
+        })
       ]);
 
       setCurrentUser(user);
@@ -447,7 +478,9 @@ const TeamManagement: React.FC = () => {
       // Filter available leaders and members in parallel
       await Promise.all([
         fetchAvailableTeamLeaders(),
-        fetchAvailableTeamMembers()
+        fetchAvailableTeamMembers(),
+        fetchAvailableSiteManagers()
+        // fetchAvailableTeamAssistants()
       ]);
 
       // If teamId is provided, find and set the selected team
@@ -469,6 +502,32 @@ const TeamManagement: React.FC = () => {
     }
   };
 
+  const fetchAvailableSiteManagers = async (): Promise<void> => {
+    try {
+      const managers: User[] = await api.getUsersByRole('site_manager');
+      setAvailableSiteManagers(managers);
+    } catch (error: any) {
+      if (error?.response?.status !== 403) {
+        console.error('Error fetching site managers:', error);
+        showSnackbar('Failed to load site managers', 'error');
+      }
+    }
+  };
+
+  /*
+  const fetchAvailableTeamAssistants = async (): Promise<void> => {
+    try {
+      const assistants: User[] = await api.getUsersByRole('team_assistant');
+      setAvailableTeamAssistants(assistants);
+    } catch (error: any) {
+      if (error?.response?.status !== 403) {
+        console.error('Error fetching team assistants:', error);
+        showSnackbar('Failed to load team assistants', 'error');
+      }
+    }
+  };
+  */
+
   const fetchAvailableTeamMembers = async (): Promise<void> => {
     try {
       // The backend api.getUsersByRole('team_member') already filters out 
@@ -482,8 +541,10 @@ const TeamManagement: React.FC = () => {
 
       setAvailableTeamMembers(availableMembers);
     } catch (error: any) {
-      console.error('Error fetching team members:', error);
-      showSnackbar('Failed to load team members', 'error');
+      if (error?.response?.status !== 403) {
+        console.error('Error fetching team members:', error);
+        showSnackbar('Failed to load team members', 'error');
+      }
     }
   };
 
@@ -502,8 +563,10 @@ const TeamManagement: React.FC = () => {
 
       setAvailableTeamLeaders(uniqueLeaders);
     } catch (error: any) {
-      console.error('Error fetching team leaders:', error);
-      showSnackbar('Failed to load team leaders', 'error');
+      if (error?.response?.status !== 403) {
+        console.error('Error fetching team leaders:', error);
+        showSnackbar('Failed to load team leaders', 'error');
+      }
     }
   };
 
@@ -687,7 +750,7 @@ const TeamManagement: React.FC = () => {
             setTeamSearch('');
             setTeamStatusFilter('all');
           }}
-          onAction={!isFiltered ? openCreateTeamForm : undefined}
+          onAction={!isFiltered && canCreateTeam ? openCreateTeamForm : undefined}
           actionText="Add New Team"
         />
       );
@@ -723,6 +786,8 @@ const TeamManagement: React.FC = () => {
       auditType: 'TVS',
     });
     setSelectedTeamMembers([]);
+    setSelectedSiteManagers([]);
+    // setSelectedTeamAssistants([]);
     setSelectedTeamLeader(null);
     setTeamFormErrors({});
     setTeamFormOpen(true);
@@ -737,10 +802,12 @@ const TeamManagement: React.FC = () => {
       description: team.description || '',
       isNewSite: team.isNewSite || false,
       status: team.status || 'active',
-      auditType: team.auditType || 'TVS', // Add this
+      auditType: team.auditType || 'TVS',
     });
 
     setSelectedTeamMembers(team.members as User[] || []);
+    setSelectedSiteManagers(team.siteManagers as User[] || []);
+    // setSelectedTeamAssistants(team.teamAssistants as User[] || []);
     setSelectedTeamLeader(team.teamLeader as User || null);
 
     setTeamFormErrors({});
@@ -757,10 +824,11 @@ const TeamManagement: React.FC = () => {
       description: '',
       isNewSite: false,
       status: 'active',
-      auditType: 'TVS', // Add this line
-
+      auditType: 'TVS',
     });
     setSelectedTeamMembers([]);
+    setSelectedSiteManagers([]);
+    // setSelectedTeamAssistants([]);
     setSelectedTeamLeader(null);
     setTeamFormErrors({});
   };
@@ -843,7 +911,9 @@ const TeamManagement: React.FC = () => {
         isNewSite: teamFormData.isNewSite,
         status: teamFormData.status,
         auditType: teamFormData.auditType,
-        members: selectedTeamMembers.map(member => member._id || member.id || '')
+        members: selectedTeamMembers.map(member => member._id || member.id || ''),
+        siteManagers: selectedSiteManagers.map(manager => manager._id || manager.id || ''),
+        // teamAssistants: selectedTeamAssistants.map(assistant => assistant._id || assistant.id || '')
       };
 
       if (selectedTeamLeader) {
@@ -915,9 +985,40 @@ const TeamManagement: React.FC = () => {
     });
   };
 
+  // Toggle site manager selection
+  const toggleSiteManager = (manager: User): void => {
+    setSelectedSiteManagers(prev => {
+      const isSelected = prev.some(m => (m._id || m.id) === (manager._id || manager.id));
+      if (isSelected) {
+        return prev.filter(m => (m._id || m.id) !== (manager._id || manager.id));
+      } else {
+        return [...prev, manager];
+      }
+    });
+  };
+
+  // Toggle team assistant selection
+  /*
+  const toggleTeamAssistant = (assistant: User): void => {
+    setSelectedTeamAssistants(prev => {
+      const isSelected = prev.some(m => (m._id || m.id) === (assistant._id || assistant.id));
+      if (isSelected) {
+        return prev.filter(m => (m._id || m.id) !== (assistant._id || assistant.id));
+      } else {
+        return [...prev, assistant];
+      }
+    });
+  };
+  */
+
   // Remove a team member
   const removeTeamMember = (memberId: string): void => {
     setSelectedTeamMembers(prev => prev.filter(m => (m._id || m.id) !== memberId));
+  };
+
+  // Remove a site manager
+  const removeSiteManager = (managerId: string): void => {
+    setSelectedSiteManagers(prev => prev.filter(m => (m._id || m.id) !== managerId));
   };
 
   // Open member selection dialog
@@ -978,6 +1079,7 @@ const TeamManagement: React.FC = () => {
 
   // Select a team to view its racks
   const selectTeamForRacks = (team: Team): void => {
+    // Site managers are allowed to view racks (read-only access via canEditDelete())
     setRacks([]);
     setTotalRacks(0);
     setRackPage(0);
@@ -988,6 +1090,52 @@ const TeamManagement: React.FC = () => {
     setCurrentAuditType(team.auditType || 'TVS');
 
     handleTeamMenuClose();
+  };
+
+  const canCurrentUserUploadTeamImages = (team: Team | null): boolean => {
+    if (!currentUser || !team) return false;
+    if (currentUser.role === 'admin') return true;
+
+    // Check if team leader
+    const leader = team.teamLeader as User | string | null | undefined;
+    const leaderId = typeof leader === 'string' ? leader : leader?._id || leader?.id;
+    if (currentUser.role === 'team_leader' && Boolean(leaderId && leaderId === (currentUser._id || currentUser.id))) {
+      return true;
+    }
+
+    // Check if team assistant
+    /*
+    if (currentUser.role === 'team_assistant') {
+      const assistants = team.teamAssistants as (User | string)[] | undefined;
+      if (assistants && assistants.length > 0) {
+        return assistants.some(assistant => {
+          const assistantId = typeof assistant === 'string' ? assistant : assistant?._id || assistant?.id;
+          return assistantId === (currentUser._id || currentUser.id);
+        });
+      }
+    }
+    */
+
+    return false;
+  };
+
+  const updateTeamInState = (updatedTeam: Team): void => {
+    const updatedTeamId = updatedTeam._id || updatedTeam.id;
+    setTeams((previousTeams) => previousTeams.map((team) =>
+      (team._id || team.id) === updatedTeamId ? updatedTeam : team
+    ));
+    setFilteredTeams((previousTeams) => previousTeams.map((team) =>
+      (team._id || team.id) === updatedTeamId ? updatedTeam : team
+    ));
+    setImagesModalTeam((currentTeam) =>
+      currentTeam && (currentTeam._id || currentTeam.id) === updatedTeamId ? updatedTeam : currentTeam
+    );
+    setPostDocumentTeam((currentTeam) =>
+      currentTeam && (currentTeam._id || currentTeam.id) === updatedTeamId ? updatedTeam : currentTeam
+    );
+    setSelectedTeam((currentTeam) =>
+      currentTeam && (currentTeam._id || currentTeam.id) === updatedTeamId ? updatedTeam : currentTeam
+    );
   };
 
   // ----- RACK OPERATIONS -----
@@ -1490,6 +1638,16 @@ const TeamManagement: React.FC = () => {
             throw new Error(teamCompletionResponse.message || 'Failed to complete team work.');
           }
 
+          if (teamCompletionResponse.data) {
+            updateTeamInState(teamCompletionResponse.data as Team);
+          } else {
+            updateTeamInState({
+              ...selectedTeam,
+              status: 'Completed',
+              auditEndDate: new Date().toISOString()
+            } as Team);
+          }
+
           showSnackbar(
             teamCompletionResponse.message || 'Team work completed successfully!',
             'success'
@@ -1670,21 +1828,23 @@ const TeamManagement: React.FC = () => {
 
             <Grid size={{ xs: 12, md: 5 }}>
               <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={openCreateTeamForm}
-                  sx={{
-                    bgcolor: primaryColor,
-                    '&:hover': { bgcolor: secondaryColor },
-                    borderRadius: 2,
-                    px: 3,
-                    py: 1
-                  }}
-                >
-                  Add New Team
-                </Button>
+                {canCreateTeam && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<AddIcon />}
+                    onClick={openCreateTeamForm}
+                    sx={{
+                      bgcolor: primaryColor,
+                      '&:hover': { bgcolor: secondaryColor },
+                      borderRadius: 2,
+                      px: 3,
+                      py: 1
+                    }}
+                  >
+                    Add New Team
+                  </Button>
+                )}
               </Box>
             </Grid>
           </Grid>
@@ -1835,35 +1995,155 @@ const TeamManagement: React.FC = () => {
                               No members assigned
                             </Typography>
                           )}
+
+                          <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mt: 1.5 }}>
+                            Site Manager ({team.siteManagers?.length || 0})
+                          </Typography>
+
+                          {Array.isArray(team.siteManagers) && team.siteManagers.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {team.siteManagers.slice(0, 2).map((sm: any, idx: number) => {
+                                const isString = typeof sm === 'string';
+                                const smId = isString ? sm : (sm?._id || sm?.id || idx);
+                                const smName = isString ? 'Site Manager' : (sm?.name || 'Unknown');
+                                return (
+                                  <Chip
+                                    key={smId}
+                                    label={smName}
+                                    size="small"
+                                  sx={{
+                                    bgcolor: '#F59E0B22',
+                                    color: '#B45309',
+                                    fontWeight: 500
+                                  }}
+                                  />
+                                );
+                              })}
+                              {team.siteManagers.length > 2 && (
+                                <Chip
+                                  label={`+${team.siteManagers.length - 2} more`}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: '#F59E0B10',
+                                    color: '#B45309'
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                              No site manager assigned
+                            </Typography>
+                          )}
                         </Box>
 
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <CalendarIcon fontSize="small" color="action" />
-                            <Typography variant="caption" color="textSecondary">
-                              Created: {team.createdAt ? format(new Date(team.createdAt), 'dd MMM yyyy') : "N/A"}
-                            </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', mt: 2, gap: 2 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <CalendarIcon fontSize="small" color="action" />
+                              <Typography variant="caption" color="textSecondary">
+                                Created: {team.createdAt ? format(new Date(team.createdAt), 'dd MMM yyyy') : "N/A"}
+                              </Typography>
+                            </Box>
+                            {team.auditEndDate && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <CalendarIcon fontSize="small" color="action" />
+                                <Typography variant="caption" color="textSecondary">
+                                  End: {format(new Date(team.auditEndDate), 'dd MMM yyyy')}
+                                </Typography>
+                              </Box>
+                            )}
                           </Box>
 
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            endIcon={<NavigateNextIcon />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              selectTeamForRacks(team);
-                            }}
-                            sx={{
-                              borderColor: primaryColor,
-                              color: primaryColor,
-                              '&:hover': {
-                                bgcolor: `${primaryColor}10`,
-                                borderColor: primaryColor
-                              }
-                            }}
-                          >
-                            View Racks
-                          </Button>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'flex-end' }}>
+                            {currentUser?.role !== 'site_manager' && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<CollectionsIcon />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setImagesModalTeam(team);
+                                }}
+                                sx={{
+                                  borderColor: primaryColor,
+                                  color: primaryColor,
+                                  '&:hover': {
+                                    bgcolor: `${primaryColor}10`,
+                                    borderColor: primaryColor
+                                  }
+                                }}
+                              >
+                                Images
+                              </Button>
+                            )}
+
+                            {currentUser?.role === 'site_manager' && (
+                              <>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const targetTeamId = team._id || team.id;
+                                    if (targetTeamId) {
+                                      navigate(`/admin/teams/${targetTeamId}/before-entry`);
+                                    }
+                                  }}
+                                  sx={{
+                                    borderColor: primaryColor,
+                                    color: primaryColor,
+                                    '&:hover': {
+                                      bgcolor: `${primaryColor}10`,
+                                      borderColor: primaryColor
+                                    }
+                                  }}
+                                >
+                                  Before Entry
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const targetTeamId = team._id || team.id;
+                                    if (targetTeamId) {
+                                      navigate(`/admin/teams/${targetTeamId}/after-entry`);
+                                    }
+                                  }}
+                                  sx={{
+                                    borderColor: primaryColor,
+                                    color: primaryColor,
+                                    '&:hover': {
+                                      bgcolor: `${primaryColor}10`,
+                                      borderColor: primaryColor
+                                    }
+                                  }}
+                                >
+                                  After Entry
+                                </Button>
+                              </>
+                            )}
+
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                selectTeamForRacks(team);
+                              }}
+                              sx={{
+                                borderColor: primaryColor,
+                                color: primaryColor,
+                                '&:hover': {
+                                  bgcolor: `${primaryColor}10`,
+                                  borderColor: primaryColor
+                                }
+                              }}
+                            >
+                              View Racks
+                            </Button>
+                          </Box>
                         </Box>
                       </CardContent>
                     </StyledCard>
@@ -1935,9 +2215,9 @@ const TeamManagement: React.FC = () => {
                 variant="outlined"
                 startIcon={<ArrowBackIcon />}
                 onClick={() => {
-                  setActiveTab('teams');
                   setSelectedTeam(null);
-                  loadInitialData();
+                  setActiveTab('teams');
+                  navigate('/admin/teams');
                 }}
                 sx={{
                   color: 'white',
@@ -2017,10 +2297,10 @@ const TeamManagement: React.FC = () => {
                   </Button>
                 )
               )}
-              {currentUser?.role === 'admin' && (
+              {['admin', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
                 <Button
                   variant="contained"
-                  onClick={() => navigate(`/admin/teams/${selectedTeam?._id || selectedTeam?.id}/dms-comparison`)}
+                  onClick={() => navigate(`/admin/teams/${selectedTeam?._id || selectedTeam?.id}/report`)}
                   sx={{
                     ml: 2,
                     bgcolor: 'rgba(255, 255, 255, 0.9)',
@@ -2030,7 +2310,7 @@ const TeamManagement: React.FC = () => {
                     }
                   }}
                 >
-                  DMS Comparison
+                  Reports
                 </Button>
               )}
             </Box>
@@ -2150,23 +2430,25 @@ const TeamManagement: React.FC = () => {
 
             <Grid size={{ xs: 12, md: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={exportRacksToExcel}
-                  disabled={loading || totalRacks === 0}
-                  sx={{
-                    borderColor: primaryColor,
-                    color: primaryColor,
-                    '&:hover': {
-                      bgcolor: `${primaryColor}10`,
-                      borderColor: primaryColor
-                    }
-                  }}
-                >
-                  Export {selectedTeam?.auditType === 'TATA' ? '(Grouped)' : ''}
-                </Button>
-                {currentUser?.role === 'admin' && (
+                {currentUser?.role !== 'site_manager' && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={exportRacksToExcel}
+                    disabled={loading || totalRacks === 0}
+                    sx={{
+                      borderColor: primaryColor,
+                      color: primaryColor,
+                      '&:hover': {
+                        bgcolor: `${primaryColor}10`,
+                        borderColor: primaryColor
+                      }
+                    }}
+                  >
+                    Export {selectedTeam?.auditType === 'TATA' ? '(Grouped)' : ''}
+                  </Button>
+                )}
+                {['admin', 'team_leader'].includes(currentUser?.role || '') && (
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -2371,8 +2653,8 @@ const TeamManagement: React.FC = () => {
                     <TableCell>Part No.</TableCell>
                     <TableCell align="right">Quantity</TableCell>
                     <TableCell>Status</TableCell>
-                    {currentAuditType !== 'TATA' && <TableCell align="right">MRP (₹)</TableCell>}
-                    <TableCell align="right">NDP (₹)</TableCell>
+                    {currentAuditType !== 'TATA' && <TableCell align="right">NDP (₹)</TableCell>}
+                    <TableCell align="right">MRP (₹)</TableCell>
                     <TableCell>Description</TableCell>
                     {currentAuditType === 'TATA' && <TableCell>Remark</TableCell>}
                     {rackSearch === 'n/a' && <TableCell>Missing Info</TableCell>}
@@ -2524,16 +2806,18 @@ const TeamManagement: React.FC = () => {
         >
           <VisibilityIcon fontSize="small" sx={{ mr: 1 }} /> View Racks
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            openEditTeamForm(teamMenuTarget!);
-            handleTeamMenuClose();
-            setActiveTab('teams');
-          }}
-        >
-          <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit Team
-        </MenuItem>
-        {currentUser?.role === 'admin' && (
+        {currentUser?.role !== 'site_manager' && (
+          <MenuItem
+            onClick={() => {
+              openEditTeamForm(teamMenuTarget!);
+              handleTeamMenuClose();
+              setActiveTab('teams');
+            }}
+          >
+            <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit Team
+          </MenuItem>
+        )}
+        {['admin', 'team_leader'].includes(currentUser?.role || '') && (
           <MenuItem
             onClick={() => {
               setDmsUploadTeamId(teamMenuTarget?._id || teamMenuTarget?.id || null);
@@ -2543,14 +2827,39 @@ const TeamManagement: React.FC = () => {
             <DescriptionIcon fontSize="small" sx={{ mr: 1 }} /> Add DMS
           </MenuItem>
         )}
-        <MenuItem
-          onClick={() => {
-            openTeamDeleteDialog(teamMenuTarget!);
-          }}
-          sx={{ color: "error.main" }}
-        >
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete Team
-        </MenuItem>
+        {currentUser?.role !== 'site_manager' && (
+          <MenuItem
+            onClick={() => {
+              setPostDocumentTeam(teamMenuTarget);
+              handleTeamMenuClose();
+            }}
+          >
+            <DownloadIcon fontSize="small" sx={{ mr: 1 }} /> Post Document Download
+          </MenuItem>
+        )}
+        {/* Report action moved to the selected-team Reports button above. */}
+        {/* 
+        {['admin', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
+          <MenuItem
+            onClick={() => {
+              setAuditUploadTeam(teamMenuTarget);
+              handleTeamMenuClose();
+            }}
+          >
+            <TableChartIcon fontSize="small" sx={{ mr: 1 }} /> Upload Audit Excel
+          </MenuItem>
+        )}
+        */}
+        {currentUser?.role !== 'site_manager' && (
+          <MenuItem
+            onClick={() => {
+              openTeamDeleteDialog(teamMenuTarget!);
+            }}
+            sx={{ color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete Team
+          </MenuItem>
+        )}
       </Menu>
 
       <TeamForm
@@ -2568,6 +2877,12 @@ const TeamManagement: React.FC = () => {
         onTeamLeaderChange={handleTeamLeaderChange}
         selectedTeamMembers={selectedTeamMembers}
         onOpenMemberDialog={openMemberDialog}
+        onRemoveTeamMember={removeTeamMember}
+        selectedSiteManagers={selectedSiteManagers}
+        onOpenSiteManagerDialog={() => setSiteManagerDialogOpen(true)}
+        onRemoveSiteManager={removeSiteManager}
+        // selectedTeamAssistants={selectedTeamAssistants}
+        // onOpenTeamAssistantDialog={() => setTeamAssistantDialogOpen(true)}
         onGetCurrentLocation={getCurrentLocation}
         gettingLocation={gettingLocation}
         getInitials={getInitials}
@@ -2585,10 +2900,32 @@ const TeamManagement: React.FC = () => {
         }}
       />
 
+      <TeamImagesModal
+        open={Boolean(imagesModalTeam)}
+        team={imagesModalTeam}
+        canUpload={canCurrentUserUploadTeamImages(imagesModalTeam)}
+        onClose={() => setImagesModalTeam(null)}
+        onTeamUpdated={updateTeamInState}
+        onMessage={(message, severity = 'success') => showSnackbar(message, severity)}
+      />
+
+      <PostDocumentDownloadModal
+        open={Boolean(postDocumentTeam)}
+        team={postDocumentTeam}
+        onClose={() => setPostDocumentTeam(null)}
+        onMessage={(message, severity = 'success') => showSnackbar(message, severity)}
+      />
+
+      <BeforeAfterAuditUploadModal
+        open={Boolean(auditUploadTeam)}
+        team={auditUploadTeam}
+        onClose={() => setAuditUploadTeam(null)}
+      />
+
       {/* Team Member Selection Dialog */}
       <MemberAssignmentDialog
         open={memberDialogOpen}
-        onClose={closeMemberDialog}
+        onClose={() => setMemberDialogOpen(false)}
         searchQuery={memberSearchQuery}
         onSearchChange={setMemberSearchQuery}
         availableMembers={availableTeamMembers}
@@ -2599,6 +2936,47 @@ const TeamManagement: React.FC = () => {
         secondaryColor={secondaryColor}
         backgroundColor={backgroundColor}
       />
+
+      {/* Site Manager Selection Dialog */}
+      <MemberAssignmentDialog
+        open={siteManagerDialogOpen}
+        onClose={() => setSiteManagerDialogOpen(false)}
+        searchQuery={siteManagerSearchQuery}
+        onSearchChange={setSiteManagerSearchQuery}
+        availableMembers={availableSiteManagers}
+        selectedMembers={selectedSiteManagers}
+        onToggleMember={toggleSiteManager}
+        getInitials={getInitials}
+        primaryColor={primaryColor}
+        secondaryColor={secondaryColor}
+        backgroundColor={backgroundColor}
+        title="Select Site Managers"
+        subtitle="Select site managers from the available list"
+        searchPlaceholder="Search site managers..."
+        emptyText="No available site managers found"
+      />
+
+      {/* Team Assistant Selection Dialog */}
+      {/* 
+      <MemberAssignmentDialog
+        open={teamAssistantDialogOpen}
+        onClose={() => setTeamAssistantDialogOpen(false)}
+        searchQuery={teamAssistantSearchQuery}
+        onSearchChange={setTeamAssistantSearchQuery}
+        availableMembers={availableTeamAssistants}
+        selectedMembers={selectedTeamAssistants}
+        onToggleMember={toggleTeamAssistant}
+        getInitials={getInitials}
+        primaryColor={primaryColor}
+        secondaryColor={secondaryColor}
+        backgroundColor={backgroundColor}
+        title="Select Team Assistants"
+        subtitle="Select team assistants who can upload images"
+        searchPlaceholder="Search team assistants..."
+        emptyText="No available team assistants found"
+      />
+      */}
+
 
       {/* Team Delete Confirmation Dialog */}
       <TeamDeleteDialog
@@ -2895,18 +3273,35 @@ const TeamManagement: React.FC = () => {
                         <Grid container spacing={2}>
                           <Grid size={{ xs: 12, md: 6 }}>
                             {isEditingRackDetails ? (
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Location"
-                                value={editRackData.location}
-                                name="location"
-                                onChange={handleEditRackChange}
-                                error={!!editRackErrors.location}
-                                helperText={editRackErrors.location}
-                                sx={{ mb: 2 }}
-                              />
-                            ) : (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Location"
+                              value={editRackData.location}
+                              name="location"
+                              onChange={handleEditRackChange}
+                              error={!!editRackErrors.location}
+                              helperText={editRackErrors.location}
+                              select
+                              InputLabelProps={{ shrink: true }}
+                              SelectProps={{
+                                displayEmpty: true,
+                                renderValue: (selected) => {
+                                  if (!selected) {
+                                    return <em>Select location</em>;
+                                  }
+                                  return selected as React.ReactNode;
+                                }
+                              }}
+                              sx={{ mb: 2 }}
+                            >
+                              {getLocationOptions(selectedTeam?.auditType).map((option) => (
+                                <MenuItem key={option} value={option}>
+                                  {option}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          ) : (
                               <Box sx={{ mb: 2 }}>
                                 <Typography variant="caption" color="textSecondary">
                                   Location
@@ -3248,20 +3643,34 @@ const TeamManagement: React.FC = () => {
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Location"
-                name="location"
-                value={newRackData.location}
-                onChange={handleNewRackChange}
-                onInput={(e: any) => { e.target.value = e.target.value.toUpperCase(); }}
-                error={!!addRackErrors.location}
-                helperText={addRackErrors.location}
-                margin="dense"
-                autoComplete="off"
-                sx={{ '& input': { textTransform: 'uppercase' } }}
-              />
-            </Grid>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  name="location"
+                  value={newRackData.location}
+                  onChange={handleNewRackChange}
+                  error={!!addRackErrors.location}
+                  helperText={addRackErrors.location}
+                  margin="dense"
+                  select
+                  InputLabelProps={{ shrink: true }}
+                  SelectProps={{
+                    displayEmpty: true,
+                    renderValue: (selected) => {
+                      if (!selected) {
+                        return <em>Select location</em>;
+                      }
+                      return selected as React.ReactNode;
+                    }
+                  }}
+                >
+                  {getLocationOptions(selectedTeam?.auditType).map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
@@ -3293,19 +3702,21 @@ const TeamManagement: React.FC = () => {
 
       {/* Mobile-only FAB for adding */}
       <Box sx={{ display: { md: 'none' } }}>
-        <Fab
-          color="primary"
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            bgcolor: primaryColor,
-            '&:hover': { bgcolor: secondaryColor }
-          }}
-          onClick={activeTab === 'teams' ? openCreateTeamForm : openAddPartnoDialog}
-        >
-          <AddIcon />
-        </Fab>
+        {!(currentUser?.role === 'site_manager' && activeTab === 'teams') && (
+          <Fab
+            color="primary"
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              bgcolor: primaryColor,
+              '&:hover': { bgcolor: secondaryColor }
+            }}
+            onClick={activeTab === 'teams' ? openCreateTeamForm : openAddPartnoDialog}
+          >
+            <AddIcon />
+          </Fab>
+        )}
       </Box>
 
       <Snackbar

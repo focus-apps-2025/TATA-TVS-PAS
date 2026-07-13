@@ -35,6 +35,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import api from '../services/api';
+import authManager from '../services/authSession';
 
 const primaryColor = '#004F98';
 
@@ -69,6 +70,7 @@ const DMSComparison: React.FC = () => {
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [showRemainingDialog, setShowRemainingDialog] = useState(false);
   const [remainingParts, setRemainingParts] = useState<ComparisonRow[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
   
   // State for edit mode in remarks
   const [editingRemark, setEditingRemark] = useState<string | null>(null);
@@ -97,6 +99,11 @@ const DMSComparison: React.FC = () => {
         console.warn('Failed to load DMS snapshot from sessionStorage');
       }
     }
+
+    // Load current user role
+    authManager.getCurrentUser().then((user) => {
+      if (user?.role) setCurrentUserRole(user.role);
+    });
 
     fetchComparisonData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,6 +371,21 @@ const DMSComparison: React.FC = () => {
           tooltipMessage = '⏳ Processing...';
         }
         
+        // Site managers get a read-only resolved indicator
+        if (currentUserRole === 'site_manager') {
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <input
+                type="checkbox"
+                checked={row.isResolved || false}
+                disabled
+                readOnly
+                style={{ width: 18, height: 18, cursor: 'default', opacity: 0.6 }}
+              />
+            </Box>
+          );
+        }
+
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Tooltip title={tooltipMessage} placement="top" arrow>
@@ -484,6 +506,21 @@ const DMSComparison: React.FC = () => {
           );
         }
         
+        // Site managers see remark as plain read-only text
+        if (currentUserRole === 'site_manager') {
+          return (
+            <Typography
+              variant="body2"
+              sx={{
+                color: params.value ? 'inherit' : 'text.secondary',
+                fontStyle: params.value ? 'normal' : 'italic'
+              }}
+            >
+              {params.value || '—'}
+            </Typography>
+          );
+        }
+
         return (
           <Box 
             onMouseDown={handleMouseDown}

@@ -1,5 +1,6 @@
 // src/App.tsx
 import React from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import AdminLayout from "./layouts/AdminLayout";
@@ -12,6 +13,9 @@ import TataFinalReport from "./pages/TataFinalReport";
 import ReportSelector from "./pages/ReportSelector"; // Selection page
 import LoginPage from "./pages/LoginPage";
 import DMSComparison from "./pages/DMSComparison";
+import TeamReport from "./pages/TeamReport";
+import AuditEntryPage from "./pages/AuditEntryPage";
+import authManager from "./services/authSession";
 
 // Create a custom theme
 const theme = createTheme({
@@ -41,6 +45,17 @@ const theme = createTheme({
   },
 });
 
+const RoleProtectedRoute = ({ children, allowedRoles }: { children: React.ReactElement, allowedRoles: string[] }) => {
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    authManager.getCurrentUser().then((user) => setRole(user?.role || ''));
+  }, []);
+
+  if (role === null) return null;
+  return !allowedRoles.includes(role) ? <Navigate to="/admin/teams" replace /> : children;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -48,15 +63,18 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route index element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager'/*, 'team_assistant'*/]}><AdminDashboard /></RoleProtectedRoute>} />
+            <Route path="users" element={<RoleProtectedRoute allowedRoles={['admin']}><UserManagement /></RoleProtectedRoute>} />
             <Route path="teams" element={<TeamManagement />} />
             <Route path="teams/:teamId" element={<TeamManagement />} />
-            <Route path="teams/:teamId/dms-comparison" element={<DMSComparison />} />
-            <Route path="master-desc" element={<MasterDescription />} />
-            <Route path="reports" element={<ReportSelector />} /> {/* New selection page */}
-            <Route path="reports/tvs" element={<FinalReport />} /> {/* TVS report */}
-            <Route path="reports/tata" element={<TataFinalReport />} /> {/* TATA report */}
+            <Route path="teams/:teamId/dms-comparison" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><DMSComparison /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId/report" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><TeamReport /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId/before-entry" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><AuditEntryPage auditType="before" /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId/after-entry" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><AuditEntryPage auditType="after" /></RoleProtectedRoute>} />
+            <Route path="master-desc" element={<RoleProtectedRoute allowedRoles={['admin']}><MasterDescription /></RoleProtectedRoute>} />
+            <Route path="reports" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><ReportSelector /></RoleProtectedRoute>} />
+            <Route path="reports/tvs" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><FinalReport /></RoleProtectedRoute>} />
+            <Route path="reports/tata" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><TataFinalReport /></RoleProtectedRoute>} />
           </Route>
           <Route path="/" element={<Navigate to="/admin" />} />
           <Route path="*" element={<Navigate to="/admin" />} />
