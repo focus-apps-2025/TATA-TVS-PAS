@@ -71,7 +71,7 @@ interface ReportRow {
 }
 
 type AuditType = 'before' | 'after';
-type TeamAuditType = 'TVS' | 'TATA';
+type TeamAuditType = 'TVS' | 'TATA' | '3w-tvs';
 type ComparisonFilter = 'all' | 'shortage' | 'excess' | 'matched' | 'dmsOnly' | 'physicalOnly';
 
 interface SummaryStats {
@@ -1348,7 +1348,7 @@ const TeamReport: React.FC = () => {
       }
     }
 
-    if (teamAuditType === 'TVS' && teamId) {
+    if ((teamAuditType === 'TVS' || teamAuditType === '3w-tvs') && teamId) {
       const rackExport = await api.exportAllRacks({ teamId });
       const tvsTemplateSheet = workbook.addWorksheet('TVS Template');
       const tvsTemplateRows = await buildTvsTemplateRows(rackExport as ApiRack[]);
@@ -1892,7 +1892,7 @@ const TeamReport: React.FC = () => {
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              {teamAuditType === 'TVS' ? (
+              {teamAuditType === 'TVS' || teamAuditType === '3w-tvs' ? (
                 <TextField
                   select
                   label="Location"

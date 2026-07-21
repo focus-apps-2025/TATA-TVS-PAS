@@ -168,9 +168,11 @@ const surfaceColor = '#FFFFFF';
 
 const TVS_LOCATION_OPTIONS = ['LUBRICANTS', 'PARTS', 'KIT', 'CONSUMER PRODUCTS', 'LOCAL ITEMS', 'SPARES', 'ACCESSORIES', '3W', '2W'];
 const TATA_LOCATION_OPTIONS = ['LUBRICANT', 'PARTS', 'CONSUMER PRODUCTS', 'LOCAL ITEMS', 'SPARES', 'ACCESSORIES', 'FIAT SPARES', 'NANO SPARES', 'TYRE', 'BATTERY', 'DAMAGED', 'TOOLS', 'OILS', '1-NORMAL PARTS', '9-MISCELLENEOUS', '2-EXCHANGE PARTS', '3-RETROFIT PARTS', 'LOCAL PARTS', '5-RIMSWHEELS', '7-BMW LIFESTYLE', '8-TIRES'];
+const THREEW_TVS_LOCATION_OPTIONS = ['LUBRICANTS', 'PARTS', 'KIT', 'CONSUMER PRODUCTS', 'LOCAL ITEMS', 'SPARES', 'ACCESSORIES', '3W', '2W'];
 
 const getLocationOptions = (auditType?: string): string[] => {
   if (auditType === 'TATA') return TATA_LOCATION_OPTIONS;
+  if (auditType === '3w-tvs') return THREEW_TVS_LOCATION_OPTIONS;
   if (auditType === 'TVS') return TVS_LOCATION_OPTIONS;
   return [];
 };
@@ -331,7 +333,7 @@ const TeamManagement: React.FC = () => {
   const [loadingMissingInfo, setLoadingMissingInfo] = useState<boolean>(false);
 
 
-  const [currentAuditType, setCurrentAuditType] = useState<'TVS' | 'TATA'>('TVS');
+  const [currentAuditType, setCurrentAuditType] = useState<'TVS' | 'TATA' | '3w-tvs'>('TVS');
 
 
   // For rack details editing
@@ -1556,7 +1558,7 @@ const TeamManagement: React.FC = () => {
     // Different messages based on audit type
     const finishWorkMessage = isTATA
       ? `Are you sure you want to finish work for site "${selectedTeam.siteName}" (TATA Mode)?\n\nThis action will:\n• Save a grouped snapshot of all current data\n• Clear team members and leader from the team`
-      : `Are you sure you want to finish work for site "${selectedTeam.siteName}" (TVS Mode)?\n\nThis action will:\n• Save a snapshot of all current rack data\n• Clear team members and leader from the team`;
+      : `Are you sure you want to finish work for site "${selectedTeam.siteName}" (${selectedTeam.auditType === '3w-tvs' ? '3W TVS' : 'TVS'} Mode)?\n\nThis action will:\n• Save a snapshot of all current rack data\n• Clear team members and leader from the team`;
 
     const confirmationDialog = {
       title: 'Confirm Finish Work',
@@ -1930,8 +1932,14 @@ const TeamManagement: React.FC = () => {
                                 sx={{
                                   bgcolor: team.auditType === 'TATA'
                                     ? `${warningColor}15`
+                                    : team.auditType === '3w-tvs'
+                                    ? '#10B98115'
                                     : `${primaryColor}15`,
-                                  color: team.auditType === 'TATA' ? warningColor : primaryColor,
+                                  color: team.auditType === 'TATA'
+                                    ? warningColor
+                                    : team.auditType === '3w-tvs'
+                                    ? '#10B981'
+                                    : primaryColor,
                                   mt: 1,
                                   fontSize: '0.7rem',
                                   height: 20
@@ -2255,6 +2263,8 @@ const TeamManagement: React.FC = () => {
                     sx={{
                       bgcolor: selectedTeam.auditType === 'TATA'
                         ? 'rgba(211, 84, 0, 0.9)'
+                        : selectedTeam.auditType === '3w-tvs'
+                        ? 'rgba(16, 185, 129, 0.9)'
                         : 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
                       fontSize: '0.7rem'

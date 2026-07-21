@@ -355,6 +355,7 @@ const TeamForm: React.FC<TeamFormProps> = ({
                       >
                         <MenuItem value="TVS">TVS Mode</MenuItem>
                         <MenuItem value="TATA">TATA Mode</MenuItem>
+                        <MenuItem value="3w-tvs">3W TVS Mode</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>

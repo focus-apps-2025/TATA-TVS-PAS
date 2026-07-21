@@ -125,8 +125,14 @@ const TeamCard: React.FC<TeamCardProps> = ({
                   sx={{
                     bgcolor: team.auditType === 'TATA'
                       ? `${warningColor}15`
+                      : team.auditType === '3w-tvs'
+                      ? '#10B98115'
                       : `${primaryColor}15`,
-                    color: team.auditType === 'TATA' ? warningColor : primaryColor,
+                    color: team.auditType === 'TATA'
+                      ? warningColor
+                      : team.auditType === '3w-tvs'
+                      ? '#10B981'
+                      : primaryColor,
                     mt: 1,
                     fontSize: '0.7rem',
                     height: 20

@@ -59,7 +59,7 @@ interface DeleteDialogState {
 }
 
 interface ManualPartForm {
-  auditType: 'TVS' | 'TATA';
+  auditType: 'TVS' | 'TATA' | '3w-tvs';
   partNo: string;
   description: string;
   ndp: string;
@@ -711,6 +711,7 @@ const MasterDescriptionScreen: React.FC = () => {
               >
                 <MenuItem value="TVS">TVS</MenuItem>
                 <MenuItem value="TATA">TATA</MenuItem>
+                <MenuItem value="3w-tvs">3W TVS</MenuItem>
               </TextField>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>

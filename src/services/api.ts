@@ -43,7 +43,7 @@ export interface Team {
     description?: string;
     isNewSite: boolean;
     status: string;
-    auditType?: 'TVS' | 'TATA';
+    auditType?: 'TVS' | 'TATA' | '3w-tvs';
     teamLeader?: User | string | null;
     members?: (User | string)[];
     teamAssistants?: (User | string)[];
@@ -123,7 +123,7 @@ export interface TeamFormData {
     description: string;
     status: string;
     isNewSite: boolean;
-    auditType: 'TVS' | 'TATA';
+    auditType: 'TVS' | 'TATA' | '3w-tvs';
     members?: string[];
     siteManagers?: string[];
     teamAssistants?: string[];
@@ -521,7 +521,7 @@ const api = {
         }).then(response => response.data),
 
     addManualMasterPart: (data: {
-        auditType: 'TVS' | 'TATA';
+        auditType: 'TVS' | 'TATA' | '3w-tvs';
         partNo: string;
         description: string;
         ndp: number;
