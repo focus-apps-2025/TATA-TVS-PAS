@@ -1608,6 +1608,18 @@ const TeamManagement: React.FC = () => {
                 siteName: latestRack.siteName || selectedTeam.siteName || ''
               };
             });
+          } else if (selectedTeam.auditType === '3w-tvs') {
+            // 3W-TVS: Individual racks, MRP only (no NDP)
+            exportRows = allRacksForSubmission.map((rack, index) => ({
+              sNo: index + 1,
+              location: rack.location || '',
+              rackNo: rack.rackNo || '',
+              partNo: rack.partNo || '',
+              nextQty: rack.nextQty || 0,
+              mrp: rack.mrp || 0,
+              materialDescription: rack.materialDescription || '',
+              siteName: rack.siteName || selectedTeam.siteName || ''
+            }));
           } else {
             // TVS: Individual racks for snapshot
             exportRows = allRacksForSubmission.map((rack, index) => ({
