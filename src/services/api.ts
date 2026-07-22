@@ -138,7 +138,7 @@ const apiBaseUrl =
     import.meta.env.VITE_API_URL ||
     (import.meta.env.DEV
         ? 'http://localhost:5000/api'
-        : 'https://tata-tvs-backend-nags.onrender.com/api');
+        : 'https://pasbackend.focusengineeringapp.com/api');
 
 // We create a single, configured instance of Axios
 const apiService: AxiosInstance = axios.create({
