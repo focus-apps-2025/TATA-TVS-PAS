@@ -143,6 +143,7 @@ const MasterDescriptionScreen: React.FC = () => {
   const [manualPartForm, setManualPartForm] = useState<ManualPartForm>(initialManualPartForm);
   const [isSavingManualPart, setIsSavingManualPart] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -413,13 +414,20 @@ const MasterDescriptionScreen: React.FC = () => {
 
   const handleDownloadFile = async (file: UploadedFile): Promise<void> => {
     const id = file._id;
-    if (!id) {
-      showSnackbar('Download failed: missing file id', 'error');
+    if (!id || downloadingFileId) {
+      if (!id) showSnackbar('Download failed: missing file id', 'error');
       return;
     }
 
+    setDownloadingFileId(id);
     try {
-      const blob = await api.downloadUploadedFile(id);
+      const { blob, error } = await api.downloadUploadedFileWithCheck(id);
+
+      if (error || !blob) {
+        showSnackbar(error || 'Download failed', 'error');
+        return;
+      }
+
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       const baseFilename = file.filename || 'master-descriptions';
@@ -432,11 +440,13 @@ const MasterDescriptionScreen: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 5000);
       showSnackbar('Download started', 'success');
     } catch (err) {
       console.error('download error', err);
       showSnackbar('Download failed', 'error');
+    } finally {
+      setDownloadingFileId(null);
     }
   };
 
@@ -607,13 +617,18 @@ const MasterDescriptionScreen: React.FC = () => {
                               </Box>
 
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Tooltip title="Download file">
-                                  <IconButton
-                                    onClick={() => handleDownloadFile(file)}
-                                    aria-label={`download-${file.filename}`}
-                                  >
-                                    <Download />
-                                  </IconButton>
+                                <Tooltip title={downloadingFileId === file._id ? 'Downloading...' : 'Download file'}>
+                                  <span>
+                                    <IconButton
+                                      onClick={() => handleDownloadFile(file)}
+                                      disabled={downloadingFileId === file._id}
+                                      aria-label={`download-${file.filename}`}
+                                    >
+                                      {downloadingFileId === file._id
+                                        ? <CircularProgress size={22} />
+                                        : <Download />}
+                                    </IconButton>
+                                  </span>
                                 </Tooltip>
                                 <Tooltip title="Delete file">
                                   <IconButton

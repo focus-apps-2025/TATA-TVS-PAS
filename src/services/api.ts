@@ -537,6 +537,27 @@ const api = {
             responseType: 'blob'
         }).then(response => response.data),
 
+    downloadUploadedFileWithCheck: async (fileId: string): Promise<{ blob?: Blob; error?: string }> => {
+        try {
+            const response = await apiService.get(`/masterdesc/files/${fileId}/download`, {
+                responseType: 'blob'
+            });
+            return { blob: response.data as Blob };
+        } catch (err: any) {
+            const errData = err?.response?.data;
+            if (errData instanceof Blob) {
+                const text = await errData.text().catch(() => '');
+                try {
+                    const json = JSON.parse(text);
+                    return { error: json.message || 'Download failed' };
+                } catch {
+                    return { error: 'Download failed' };
+                }
+            }
+            return { error: err?.message || 'Download failed' };
+        }
+    },
+
     deleteUploadedFile: (fileId: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/masterdesc/files/${fileId}`).then(response => response.data),
 
