@@ -92,6 +92,7 @@ const AuditEntryPage: React.FC<AuditEntryPageProps> = ({ auditType }) => {
     ndp: 0,
     mrp: 0
   });
+  const [partNoWarning, setPartNoWarning] = useState<string>('');
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -159,6 +160,7 @@ const AuditEntryPage: React.FC<AuditEntryPageProps> = ({ auditType }) => {
     const value = event.target.value;
 
     setNewRow((prev) => ({ ...prev, partNo: value }));
+    setPartNoWarning(''); // clear warning on every keystroke
 
     if (!value.trim()) {
       return;
@@ -190,8 +192,14 @@ const AuditEntryPage: React.FC<AuditEntryPageProps> = ({ auditType }) => {
           mrp: Number.isFinite(Number(mrp)) ? Number(mrp) : prev.mrp
         }));
       }
-    } catch (lookupError) {
-      console.error('Error fetching part details:', lookupError);
+    } catch (lookupError: any) {
+      if (lookupError.response?.status === 404) {
+        // Show a clear error inside the dialog — the part is not in master data
+        setPartNoWarning(`Part number "${value}" is not found in master data. MRP / NDP / Description will not be auto-filled.`);
+        setNewRow((prev) => ({ ...prev, partDescription: '', ndp: 0, mrp: 0 }));
+      } else {
+        console.error('Error fetching part details:', lookupError);
+      }
     }
   };
 
@@ -362,6 +370,11 @@ const AuditEntryPage: React.FC<AuditEntryPageProps> = ({ auditType }) => {
         <DialogTitle>Add Row</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {partNoWarning && (
+              <Alert severity="error">
+                {partNoWarning}
+              </Alert>
+            )}
             <TextField label="Rack" value={newRow.rack} onChange={(event) => setNewRow((prev) => ({ ...prev, rack: event.target.value }))} />
             <TextField label="Part No" value={newRow.partNo} onChange={handleNewRowPartNoChange} />
             <TextField

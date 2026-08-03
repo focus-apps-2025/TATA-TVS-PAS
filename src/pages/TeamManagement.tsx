@@ -363,6 +363,7 @@ const TeamManagement: React.FC = () => {
     ndp: ''
   });
   const [addRackErrors, setAddRackErrors] = useState<RackEditErrors>({});
+  const [partNoNotInMaster, setPartNoNotInMaster] = useState<string>('');
 
   // Team form state
   const [teamFormData, setTeamFormData] = useState<TeamFormData>({
@@ -1383,6 +1384,7 @@ const TeamManagement: React.FC = () => {
       ndp: ''
     });
     setAddRackErrors({});
+    setPartNoNotInMaster('');
   };
 
   const handleNewRackChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -1394,6 +1396,7 @@ const TeamManagement: React.FC = () => {
     }
 
     if (name === "partNo" && value.trim()) {
+      setPartNoNotInMaster(''); // clear old warning on every keystroke
       try {
         // Try to find in current racks first for speed
         const matchingRack = racks.find(r => r.partNo?.toLowerCase() === value.toLowerCase());
@@ -1418,9 +1421,17 @@ const TeamManagement: React.FC = () => {
             materialDescription: description || ''
           }));
         }
-      } catch (error) {
-        console.error("Error fetching part details:", error);
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          // Part not in master — show a clear warning inside the dialog
+          setPartNoNotInMaster(`Part number "${value}" is not found in master data. MRP/NDP/Description will not be auto-filled.`);
+          setNewRackData(prev => ({ ...prev, mrp: '', ndp: '', materialDescription: '' }));
+        } else {
+          console.error("Error fetching part details:", error);
+        }
       }
+    } else if (name === "partNo" && !value.trim()) {
+      setPartNoNotInMaster(''); // clear warning when field is emptied
     }
   };
 
@@ -3619,6 +3630,11 @@ const TeamManagement: React.FC = () => {
           Add New Part Number to {selectedTeam?.siteName}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
+          {partNoNotInMaster && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {partNoNotInMaster}
+            </Alert>
+          )}
           <Grid container spacing={2}>
             <Grid size={{ xs: 12 }}>
               <TextField
