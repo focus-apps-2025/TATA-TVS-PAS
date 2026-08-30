@@ -230,7 +230,6 @@ const createWorkbook = async (
     const status = String(row.getCell(13).value || '');
     row.eachCell((cell) => { setBorder(cell); cell.alignment = { vertical: 'middle', horizontal: 'center' }; });
     row.getCell(4).alignment = { vertical: 'middle', horizontal: 'left' };
-    if (status !== 'MATCHED') row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
     row.getCell(13).font = { bold: true, color: { argb: status === 'MATCHED' ? 'FF166534' : status === 'SHORTAGE' ? 'FFB91C1C' : 'FFB45309' } };
     [8, 9, 10, 11, 12].forEach((column) => { row.getCell(column).numFmt = '#,##0.00'; });
   }
