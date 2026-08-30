@@ -16,6 +16,7 @@ import {
 import {
   TwoWheeler,
   DirectionsCar,
+  DirectionsBus,
   Assessment,
   CompareArrows,
   PictureAsPdf
@@ -45,6 +46,14 @@ const ReportSelector: React.FC = () => {
       icon: <DirectionsCar sx={{ fontSize: 60 }} />,
       color: '#D35400', // TATA Orange
       route: '/admin/reports/tata'
+    },
+    {
+      id: '3w-tvs',
+      title: '3W TVS Reconciliation',
+      description: 'Prepare DMS and physical audit exports for a separate 3W TVS reconciliation',
+      icon: <DirectionsBus sx={{ fontSize: 60 }} />,
+      color: '#0F766E',
+      route: '/admin/reports/3w-tvs'
     }
   ];
 
@@ -79,7 +88,7 @@ const ReportSelector: React.FC = () => {
 
       <Grid container spacing={4} justifyContent="center">
         {reportTypes.map((report) => (
-          <Grid size={{ xs: 12, md: 6 }} key={report.id}>
+          <Grid size={{ xs: 12, md: report.id === '3w-tvs' ? 12 : 6 }} key={report.id}>
             <Card
               sx={{
                 height: '100%',
@@ -131,7 +140,7 @@ const ReportSelector: React.FC = () => {
                     }
                   }}
                 >
-                  Generate {report.title}
+                  Open {report.title}
                 </Button>
 
                 {/* PDF Button - Only for TATA */}

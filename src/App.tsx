@@ -10,6 +10,7 @@ import TeamManagement from "./pages/TeamManagement";
 import MasterDescription from "./pages/MasterDescription";
 import FinalReport from "./pages/FinalReport"; 
 import TataFinalReport from "./pages/TataFinalReport"; 
+import ThreeWReconciliation from "./pages/ThreeWReconciliation";
 import ReportSelector from "./pages/ReportSelector"; // Selection page
 import LoginPage from "./pages/LoginPage";
 import DMSComparison from "./pages/DMSComparison";
@@ -75,6 +76,7 @@ function App() {
             <Route path="reports" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><ReportSelector /></RoleProtectedRoute>} />
             <Route path="reports/tvs" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><FinalReport /></RoleProtectedRoute>} />
             <Route path="reports/tata" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><TataFinalReport /></RoleProtectedRoute>} />
+            <Route path="reports/3w-tvs" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><ThreeWReconciliation /></RoleProtectedRoute>} />
           </Route>
           <Route path="/" element={<Navigate to="/admin" />} />
           <Route path="*" element={<Navigate to="/admin" />} />
