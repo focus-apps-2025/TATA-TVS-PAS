@@ -22,6 +22,9 @@ interface SourceRow {
   quantity: number;
   description: string;
   category: string;
+  rack: string;
+  dealerId: string;
+  branchId: string;
 }
 
 interface ParsedWorkbook {
@@ -45,6 +48,12 @@ interface ComparisonRow {
   physicalValue: number;
   varianceValue: number;
   remark: 'MATCHED' | 'SHORTAGE' | 'EXCESS';
+}
+
+interface TemplateRow extends SourceRow {
+  systemQty: number;
+  difference: number;
+  differenceValue: number;
 }
 
 interface UploadPanelProps {
@@ -96,8 +105,8 @@ const findColumn = (headers: CellValue[], aliases: string[]) => {
   return -1;
 };
 
-const groupRowsByPartAndMrp = (rows: SourceRow[]) => {
-  const grouped = new Map<string, SourceRow[]>();
+const groupRowsByPartAndMrp = <T extends SourceRow>(rows: T[]) => {
+  const grouped = new Map<string, T[]>();
   rows.forEach((row) => {
     const key = `${row.partNo}|${row.mrp.toFixed(2)}`;
     grouped.set(key, [...(grouped.get(key) || []), row]);
@@ -128,6 +137,9 @@ const parseWorkbook = async (file: File, kind: UploadKind): Promise<ParsedWorkbo
   const quantityIndex = findColumn(headers, kind === 'dms' ? ['totalstock', 'quantity', 'qty', 'freeqty'] : ['quantity', 'qty', 'physicalqty']);
   const descriptionIndex = findColumn(headers, kind === 'dms' ? ['partdesc', 'partdescription', 'description'] : ['description', 'partdescription', 'partdesc']);
   const categoryIndex = findColumn(headers, kind === 'dms' ? ['category', 'locationname', 'location'] : ['location', 'category']);
+  const rackIndex = findColumn(headers, ['rack', 'rackno', 'racknumber']);
+  const dealerIdIndex = findColumn(headers, ['dealerid', 'dealercode']);
+  const branchIdIndex = findColumn(headers, ['branchid', 'branchcode']);
 
   const rows = rawRows.slice(headerRow + 1).reduce<SourceRow[]>((result, row) => {
     const partNo = cleanPartNo(row[partIndex]);
@@ -138,6 +150,9 @@ const parseWorkbook = async (file: File, kind: UploadKind): Promise<ParsedWorkbo
       quantity: numberValue(row[quantityIndex]),
       description: descriptionIndex >= 0 ? String(row[descriptionIndex] ?? '').trim() : '',
       category: categoryIndex >= 0 ? normalizeCategory(row[categoryIndex]) : 'SPARES',
+      rack: rackIndex >= 0 ? String(row[rackIndex] ?? '').trim() : '',
+      dealerId: dealerIdIndex >= 0 ? String(row[dealerIdIndex] ?? '').trim() : '',
+      branchId: branchIdIndex >= 0 ? String(row[branchIdIndex] ?? '').trim() : '',
     });
     return result;
   }, []);
@@ -146,38 +161,54 @@ const parseWorkbook = async (file: File, kind: UploadKind): Promise<ParsedWorkbo
   return { file, sheetName, rawRows, headerRow, rows };
 };
 
-const compareSources = (dms: ParsedWorkbook, physical: ParsedWorkbook): ComparisonRow[] => {
+const buildTemplateRows = (dms: ParsedWorkbook, physical: ParsedWorkbook): TemplateRow[] => {
   const dmsGroups = groupRowsByPartAndMrp(dms.rows);
   const physicalGroups = groupRowsByPartAndMrp(physical.rows);
   const keys = new Set([...dmsGroups.keys(), ...physicalGroups.keys()]);
-  const reportRows: ComparisonRow[] = [];
+  const templateRows: TemplateRow[] = [];
   [...keys].forEach((key) => {
     const dmsRows = dmsGroups.get(key) || [];
     const physicalRows = physicalGroups.get(key) || [];
-    const rowCount = Math.max(dmsRows.length, physicalRows.length);
-    for (let index = 0; index < rowCount; index += 1) {
-      const dmsRow = dmsRows[index];
-      const physicalRow = physicalRows[index];
-      const dmsQty = dmsRow?.quantity || 0;
-      const physicalQty = physicalRow?.quantity || 0;
-      const difference = physicalQty - dmsQty;
-      const dmsMrp = dmsRow?.mrp || 0;
-      const physicalMrp = physicalRow?.mrp || 0;
-      const remark: ComparisonRow['remark'] = difference === 0 ? 'MATCHED' : difference > 0 ? 'EXCESS' : 'SHORTAGE';
-      reportRows.push({
-        partNo: dmsRow?.partNo || physicalRow?.partNo || '',
-        category: physicalRow?.category || dmsRow?.category || 'SPARES',
-        description: dmsRow?.description || physicalRow?.description || '',
-        dmsQty, physicalQty, difference, dmsMrp, physicalMrp,
-        stockValue: dmsQty * dmsMrp,
-        physicalValue: physicalQty * physicalMrp,
-        varianceValue: (physicalQty * physicalMrp) - (dmsQty * dmsMrp),
-        remark,
+    const systemQty = dmsRows.reduce((sum, row) => sum + row.quantity, 0);
+    const sourceRows = physicalRows.length ? physicalRows : [dmsRows[0]];
+    sourceRows.forEach((source, index) => {
+      const allocatedSystemQty = index === 0 ? systemQty : 0;
+      const physicalQty = physicalRows.length ? source.quantity : 0;
+      const difference = physicalQty - allocatedSystemQty;
+      templateRows.push({
+        ...source,
+        category: physicalRows.length ? source.category : (dmsRows[0]?.category || 'SPARES'),
+        description: source.description || dmsRows[0]?.description || '',
+        quantity: physicalQty,
+        systemQty: allocatedSystemQty,
+        difference,
+        differenceValue: difference * source.mrp,
       });
-    }
+    });
+  });
+  return templateRows;
+};
+
+const buildReportRows = (templateRows: TemplateRow[]): ComparisonRow[] => {
+  const templateGroups = groupRowsByPartAndMrp(templateRows);
+  const reportRows: ComparisonRow[] = [];
+  templateGroups.forEach((group) => {
+    const first = group[0];
+    const dmsQty = group.reduce((sum, row) => sum + row.systemQty, 0);
+    const physicalQty = group.reduce((sum, row) => sum + row.quantity, 0);
+    const difference = physicalQty - dmsQty;
+    const remark: ComparisonRow['remark'] = difference === 0 ? 'MATCHED' : difference > 0 ? 'EXCESS' : 'SHORTAGE';
+    reportRows.push({
+      partNo: first.partNo, category: first.category, description: first.description,
+      dmsQty, physicalQty, difference, dmsMrp: first.mrp, physicalMrp: first.mrp,
+      stockValue: dmsQty * first.mrp, physicalValue: physicalQty * first.mrp,
+      varianceValue: difference * first.mrp, remark,
+    });
   });
   return reportRows.sort((a, b) => a.partNo.localeCompare(b.partNo, undefined, { numeric: true }) || a.physicalMrp - b.physicalMrp);
 };
+
+const compareSources = (dms: ParsedWorkbook, physical: ParsedWorkbook) => buildReportRows(buildTemplateRows(dms, physical));
 
 const setBorder = (cell: ExcelJS.Cell) => {
   cell.border = {
@@ -205,6 +236,7 @@ const styleRawSheet = (sheet: ExcelJS.Worksheet, widths: number[], headerRowNumb
 
 const createWorkbook = async (
   rows: ComparisonRow[],
+  templateRows: TemplateRow[],
   dms: ParsedWorkbook,
   physical: ParsedWorkbook,
   name: string,
@@ -309,16 +341,27 @@ const createWorkbook = async (
   summary.columns = [4, 23, 20, 14, 14, 20, 14, 14, 20, 14, 20, 14];
 
   const template = workbook.addWorksheet('TEMPLATE');
-  template.addRows([
-    ['3W TVS PHYSICAL COUNT TEMPLATE'], [], ['Part No.', 'MRP', 'Quantity', 'Category', 'Part Description'],
-    ['Example only', 'Use the Part No. + MRP pair for grouping', 'NDP is not used', '', ''],
-  ]);
-  template.mergeCells('A1:E1');
-  template.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: blue } };
-  template.getCell('A1').font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 13 };
-  template.getCell('A1').alignment = { horizontal: 'center' };
-  template.getRow(3).eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9EAF7' } }; cell.font = { bold: true }; setBorder(cell); });
-  template.columns = [{ width: 20 }, { width: 32 }, { width: 14 }, { width: 18 }, { width: 42 }];
+  template.addRow(['DEALER_ID', 'BRANCH_ID', 'SPARE_PART_NO', 'MRP', 'SYSTEM QTY', 'PHYSICAL QTY', 'LOCATION_ID', 'RACK', 'DIFFERENCE QTY LINE', 'DIFFERENCE VALUE']);
+  templateRows.forEach((row) => template.addRow([
+    row.dealerId, row.branchId, row.partNo, row.mrp, row.systemQty, row.quantity,
+    row.category, row.rack, row.difference, row.differenceValue,
+  ]));
+  template.getRow(1).height = 34;
+  template.getRow(1).eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    setBorder(cell);
+  });
+  for (let rowIndex = 2; rowIndex <= template.rowCount; rowIndex += 1) {
+    const row = template.getRow(rowIndex);
+    row.eachCell((cell) => { setBorder(cell); cell.alignment = { vertical: 'middle', horizontal: 'center' }; });
+    [4, 10].forEach((column) => { row.getCell(column).numFmt = '#,##0.00'; });
+    row.getCell(10).font = { bold: true, color: { argb: excelVarianceColor(Number(row.getCell(10).value) || 0) } };
+  }
+  template.columns = [14, 14, 20, 12, 14, 16, 18, 18, 21, 18].map((width) => ({ width }));
+  template.views = [{ state: 'frozen', ySplit: 1 }];
+  template.autoFilter = { from: 'A1', to: 'J1' };
 
   const countSheet = workbook.addWorksheet('COUNT SHEET');
   physical.rawRows.forEach((rawRow) => countSheet.addRow(rawRow));
@@ -345,7 +388,7 @@ const UploadPanel = ({ kind, data, onFileChange, disabled }: UploadPanelProps) =
   return <Card sx={{ height: '100%', border: `1px solid ${alpha(color, 0.22)}`, boxShadow: 'none' }}><CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}><Avatar sx={{ bgcolor: alpha(color, 0.12), color }}>{isDms ? <Description /> : <Inventory2 />}</Avatar><Box><Typography variant="h6" fontWeight={800}>{title}</Typography><Typography variant="body2" color="text.secondary">{isDms ? 'Reads PartNo, Unit Price and Total Stock.' : 'Reads PartNo., MRP (₹) and Quantity.'}</Typography></Box></Stack>
     {!data ? <Box onClick={() => !disabled && inputRef.current?.click()} onKeyDown={(event) => { if (!disabled && (event.key === 'Enter' || event.key === ' ')) inputRef.current?.click(); }} role="button" tabIndex={0} sx={{ minHeight: 170, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', p: 2, border: `1.5px dashed ${alpha(color, 0.55)}`, borderRadius: 3, cursor: disabled ? 'wait' : 'pointer', bgcolor: alpha(color, 0.025), '&:hover, &:focus-visible': { bgcolor: alpha(color, 0.08), borderColor: color, outline: 'none' } }}><CloudUpload sx={{ fontSize: 36, color, mb: 1 }} /><Typography fontWeight={700}>Choose Excel file</Typography><Typography variant="caption" color="text.secondary">.xlsx or .xls · first worksheet is used</Typography></Box>
-      : <Box sx={{ minHeight: 170, border: `1px solid ${alpha(color, 0.28)}`, borderRadius: 3, p: 2.25, bgcolor: alpha(color, 0.035) }}><Stack direction="row" spacing={1.25} alignItems="flex-start"><InsertDriveFile sx={{ color, mt: 0.25 }} /><Box sx={{ minWidth: 0, flex: 1 }}><Typography fontWeight={700} noWrap title={data.file.name}>{data.file.name}</Typography><Typography variant="body2" color="text.secondary">{formatFileSize(data.file.size)} · {data.rows.length} input rows retained as report lines</Typography><Typography variant="caption" color="text.secondary">Worksheet: {data.sheetName}</Typography></Box><CheckCircle sx={{ color: '#16A34A' }} /></Stack><LinearProgress variant="determinate" value={100} sx={{ mt: 2.5, height: 6, borderRadius: 5, bgcolor: alpha(color, 0.12), '& .MuiLinearProgress-bar': { bgcolor: color } }} /><Button size="small" onClick={() => inputRef.current?.click()} sx={{ mt: 1.5, color }}>Replace file</Button></Box>}
+      : <Box sx={{ minHeight: 170, border: `1px solid ${alpha(color, 0.28)}`, borderRadius: 3, p: 2.25, bgcolor: alpha(color, 0.035) }}><Stack direction="row" spacing={1.25} alignItems="flex-start"><InsertDriveFile sx={{ color, mt: 0.25 }} /><Box sx={{ minWidth: 0, flex: 1 }}><Typography fontWeight={700} noWrap title={data.file.name}>{data.file.name}</Typography><Typography variant="body2" color="text.secondary">{formatFileSize(data.file.size)} · {data.rows.length} raw source rows</Typography><Typography variant="caption" color="text.secondary">Worksheet: {data.sheetName}</Typography></Box><CheckCircle sx={{ color: '#16A34A' }} /></Stack><LinearProgress variant="determinate" value={100} sx={{ mt: 2.5, height: 6, borderRadius: 5, bgcolor: alpha(color, 0.12), '& .MuiLinearProgress-bar': { bgcolor: color } }} /><Button size="small" onClick={() => inputRef.current?.click()} sx={{ mt: 1.5, color }}>Replace file</Button></Box>}
     <input ref={inputRef} type="file" accept=".xlsx,.xls" hidden onChange={selectFile} />
     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}><Chip label="Part No." size="small" variant="outlined" /><Chip label="MRP" size="small" variant="outlined" /><Chip label="Quantity" size="small" variant="outlined" /></Stack>
   </CardContent></Card>;
@@ -379,7 +422,7 @@ const ThreeWReconciliation = () => {
   const handleExport = async () => {
     if (!dmsData || !physicalData) return;
     setProcessing(true); setError('');
-    try { await createWorkbook(comparison, dmsData, physicalData, reconciliationName, dealershipName, locationName, auditStartDate, auditCloseDate); }
+    try { await createWorkbook(comparison, buildTemplateRows(dmsData, physicalData), dmsData, physicalData, reconciliationName, dealershipName, locationName, auditStartDate, auditCloseDate); }
     catch (exportError) { setError(exportError instanceof Error ? exportError.message : 'Unable to create the Excel report.'); }
     finally { setProcessing(false); }
   };
