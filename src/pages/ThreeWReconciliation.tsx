@@ -241,6 +241,8 @@ const createWorkbook = async (
   physical: ParsedWorkbook,
   name: string,
   dealershipName: string,
+  dealerId: string,
+  branchId: string,
   locationName: string,
   auditStartDate: string,
   auditCloseDate: string,
@@ -338,12 +340,12 @@ const createWorkbook = async (
   for (let column = 3; column <= 12; column += 1) { summary.getCell(16, column).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: column <= 5 ? 'FFFCE4D6' : column <= 8 ? 'FF9DC3E6' : column <= 10 ? 'FFFFE699' : 'FFA9D18E' } }; summary.getCell(16, column).font = { bold: true }; summary.getCell(16, column).alignment = { horizontal: 'center', wrapText: true }; }
   for (let rowNumber = 17; rowNumber <= summaryLastRow; rowNumber += 1) { summary.getCell(rowNumber, 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; if (rowNumber === summaryLastRow) { for (let column = 2; column <= 12; column += 1) summary.getCell(rowNumber, column).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } }; } for (let column = 3; column <= 12; column += 1) summary.getCell(rowNumber, column).numFmt = '#,##0.00'; }
   // Value columns need room for large positive/negative audit amounts (otherwise Excel shows #######).
-  summary.columns = [4, 23, 20, 14, 14, 20, 14, 14, 20, 14, 20, 14];
+  summary.columns = [4, 23, 24, 14, 14, 24, 14, 14, 24, 14, 24, 14].map((width) => ({ width }));
 
   const template = workbook.addWorksheet('TEMPLATE');
   template.addRow(['DEALER_ID', 'BRANCH_ID', 'SPARE_PART_NO', 'MRP', 'SYSTEM QTY', 'PHYSICAL QTY', 'LOCATION_ID', 'RACK', 'DIFFERENCE QTY LINE', 'DIFFERENCE VALUE']);
   templateRows.forEach((row) => template.addRow([
-    row.dealerId, row.branchId, row.partNo, row.mrp, row.systemQty, row.quantity,
+    dealerId || row.dealerId, branchId || row.branchId, row.partNo, row.mrp, row.systemQty, row.quantity,
     row.category, row.rack, row.difference, row.differenceValue,
   ]));
   template.getRow(1).height = 34;
@@ -398,6 +400,8 @@ const ThreeWReconciliation = () => {
   const navigate = useNavigate();
   const [reconciliationName, setReconciliationName] = useState('');
   const [dealershipName, setDealershipName] = useState('');
+  const [dealerId, setDealerId] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [locationName, setLocationName] = useState('');
   const [auditStartDate, setAuditStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [auditCloseDate, setAuditCloseDate] = useState(new Date().toISOString().slice(0, 10));
@@ -422,7 +426,7 @@ const ThreeWReconciliation = () => {
   const handleExport = async () => {
     if (!dmsData || !physicalData) return;
     setProcessing(true); setError('');
-    try { await createWorkbook(comparison, buildTemplateRows(dmsData, physicalData), dmsData, physicalData, reconciliationName, dealershipName, locationName, auditStartDate, auditCloseDate); }
+    try { await createWorkbook(comparison, buildTemplateRows(dmsData, physicalData), dmsData, physicalData, reconciliationName, dealershipName, dealerId, branchId, locationName, auditStartDate, auditCloseDate); }
     catch (exportError) { setError(exportError instanceof Error ? exportError.message : 'Unable to create the Excel report.'); }
     finally { setProcessing(false); }
   };
@@ -435,9 +439,9 @@ const ThreeWReconciliation = () => {
     <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/reports')} sx={{ mb: 2, color: '#475569' }}>Back to reports</Button>
     <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mb: 4 }}><Avatar sx={{ width: 56, height: 56, bgcolor: '#E6F7F3', color: teal }}><DirectionsBus fontSize="large" /></Avatar><Box><Typography variant="h4" fontWeight={850} color="#123B45">3W TVS Reconciliation</Typography><Typography color="text.secondary" sx={{ mt: 0.5 }}>Compare grouped DMS and physical count-sheet data, then download the five-sheet Excel workbook.</Typography></Box></Box>
     <Stepper activeStep={comparison.length ? 3 : dmsData || physicalData ? 2 : 1} alternativeLabel sx={{ mb: 4, '& .MuiStepLabel-label': { fontWeight: 600 } }}>{steps.map((step) => <Step key={step}><StepLabel>{step}</StepLabel></Step>)}</Stepper>
-    <Alert icon={<InfoOutlined />} severity="info" sx={{ mb: 3, borderRadius: 2 }}>Each uploaded row remains a separate report line. DMS and physical rows are matched only by <strong>Part No. + MRP</strong>; missing counterparts are assigned quantity 0. NDP and master descriptions are not required.</Alert>
+    <Alert icon={<InfoOutlined />} severity="info" sx={{ mb: 3, borderRadius: 2 }}>The TEMPLATE retains rack-level physical records. It is consolidated into REPORT by <strong>Part No. + MRP</strong>; missing counterparts are assigned quantity 0. NDP and master descriptions are not required.</Alert>
     {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError('')}>{error}</Alert>}
-    <Card sx={{ mb: 3, boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)', border: '1px solid #E2E8F0' }}><CardContent sx={{ p: { xs: 2.5, md: 3 } }}><Typography variant="h6" fontWeight={800}>Reconciliation details</Typography><Grid container spacing={2} sx={{ mt: 0.5 }}><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Reconciliation name" placeholder="e.g. Teppets 3W — August 2026" value={reconciliationName} onChange={(event) => setReconciliationName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Dealership name" placeholder="e.g. Teepees Future Mobility LLP" value={dealershipName} onChange={(event) => setDealershipName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Location" placeholder="e.g. Kasaragod, Kerala" value={locationName} onChange={(event) => setLocationName(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit start date" type="date" value={auditStartDate} onChange={(event) => setAuditStartDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit close date" type="date" value={auditCloseDate} onChange={(event) => setAuditCloseDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid></Grid></CardContent></Card>
+    <Card sx={{ mb: 3, boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)', border: '1px solid #E2E8F0' }}><CardContent sx={{ p: { xs: 2.5, md: 3 } }}><Typography variant="h6" fontWeight={800}>Reconciliation details</Typography><Grid container spacing={2} sx={{ mt: 0.5 }}><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Reconciliation name" placeholder="e.g. Teppets 3W — August 2026" value={reconciliationName} onChange={(event) => setReconciliationName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Dealership name" placeholder="e.g. Teepees Future Mobility LLP" value={dealershipName} onChange={(event) => setDealershipName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Location" placeholder="e.g. Kasaragod, Kerala" value={locationName} onChange={(event) => setLocationName(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Dealer ID" placeholder="e.g. 14854" value={dealerId} onChange={(event) => setDealerId(event.target.value)} helperText="Displayed in TEMPLATE" /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Branch ID" placeholder="Enter branch ID" value={branchId} onChange={(event) => setBranchId(event.target.value)} helperText="Displayed in TEMPLATE" /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit start date" type="date" value={auditStartDate} onChange={(event) => setAuditStartDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit close date" type="date" value={auditCloseDate} onChange={(event) => setAuditCloseDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid></Grid></CardContent></Card>
     <Typography variant="h6" fontWeight={800} sx={{ mb: 1 }}>Upload source files</Typography><Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>The raw uploads are retained in the exported workbook as COUNT SHEET and P201.</Typography>
     <Grid container spacing={3}><Grid size={{ xs: 12, md: 6 }}><UploadPanel kind="dms" data={dmsData} onFileChange={(file) => handleFile('dms', file)} disabled={processing} /></Grid><Grid size={{ xs: 12, md: 6 }}><UploadPanel kind="physical" data={physicalData} onFileChange={(file) => handleFile('physical', file)} disabled={processing} /></Grid></Grid>
     {comparison.length > 0 && <><Grid container spacing={2} sx={{ mt: 3 }}>
