@@ -305,7 +305,8 @@ const createWorkbook = async (
   ['B15', 'C15', 'F15', 'I15', 'K15'].forEach((address, index) => { const colors = ['FFFFFF00', 'FFFCE4D6', 'FF9DC3E6', 'FFFFE699', 'FFA9D18E']; summary.getCell(address).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors[index] } }; summary.getCell(address).font = { bold: true }; summary.getCell(address).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
   for (let column = 3; column <= 12; column += 1) { summary.getCell(16, column).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: column <= 5 ? 'FFFCE4D6' : column <= 8 ? 'FF9DC3E6' : column <= 10 ? 'FFFFE699' : 'FFA9D18E' } }; summary.getCell(16, column).font = { bold: true }; summary.getCell(16, column).alignment = { horizontal: 'center', wrapText: true }; }
   for (let rowNumber = 17; rowNumber <= summaryLastRow; rowNumber += 1) { summary.getCell(rowNumber, 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; if (rowNumber === summaryLastRow) { for (let column = 2; column <= 12; column += 1) summary.getCell(rowNumber, column).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } }; } for (let column = 3; column <= 12; column += 1) summary.getCell(rowNumber, column).numFmt = '#,##0.00'; }
-  summary.columns = [4, 23, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14];
+  // Value columns need room for large positive/negative audit amounts (otherwise Excel shows #######).
+  summary.columns = [4, 23, 20, 14, 14, 20, 14, 14, 20, 14, 20, 14];
 
   const template = workbook.addWorksheet('TEMPLATE');
   template.addRows([
