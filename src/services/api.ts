@@ -137,7 +137,7 @@ interface ExportRackRow {
 const apiBaseUrl =
     import.meta.env.VITE_API_URL ||
     (import.meta.env.DEV
-        ? 'http://localhost:5000/api'
+        ? 'http://127.0.0.1:5000/api'
         : 'https://pasbackend.focusengineeringapp.com/api');
 
 // We create a single, configured instance of Axios
