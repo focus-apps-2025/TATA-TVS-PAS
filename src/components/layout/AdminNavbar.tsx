@@ -49,6 +49,10 @@ import {
   Logout as LogoutIcon,
   Menu as MenuIcon,
   Business,
+  Assignment as AssignmentIcon,
+  TaskAlt as TaskAltIcon,
+  UploadFile as UploadFileIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 
@@ -117,6 +121,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
   const [selectedTab, setSelectedTab] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [auditDetailsAnchorEl, setAuditDetailsAnchorEl] = useState<HTMLElement | null>(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<HTMLElement | null>(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState<boolean>(false);
 
@@ -188,6 +193,14 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
 
   const handleProfileMenuClose = (): void => {
     setAnchorEl(null);
+  };
+
+  const handleAuditDetailsOpen = (event: MouseEvent<HTMLElement>): void => {
+    setAuditDetailsAnchorEl(event.currentTarget);
+  };
+
+  const handleAuditDetailsClose = (): void => {
+    setAuditDetailsAnchorEl(null);
   };
 
   const handleNotificationsOpen = (event: MouseEvent<HTMLElement>): void => {
@@ -292,6 +305,22 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
                     );
                   })}
                 </Tabs>
+                {userProfile?.role === 'admin' && <Button
+                  onClick={handleAuditDetailsOpen}
+                  endIcon={<KeyboardArrowDownIcon />}
+                  sx={{
+                    minHeight: 64,
+                    px: 2,
+                    color: '#64748B',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    textTransform: 'none',
+                    whiteSpace: 'nowrap',
+                    '&:hover': { color: '#004F98', bgcolor: 'transparent' }
+                  }}
+                >
+                  Audit Details
+                </Button>}
               </Box>
             )}
 
@@ -439,6 +468,28 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
             <LogoutIcon fontSize="small" sx={{color:'#f01c1cff'}} />
           </ListItemIcon>
           <ListItemText>Logout</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={auditDetailsAnchorEl}
+        open={Boolean(auditDetailsAnchorEl)}
+        onClose={handleAuditDetailsClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { minWidth: 230, mt: 0.5, borderRadius: 2 } } }}
+      >
+        <MenuItem onClick={() => { handleAuditDetailsClose(); navigate('/admin/audit-follow-ups'); }}>
+          <ListItemIcon><AssignmentIcon fontSize="small" color="primary" /></ListItemIcon>
+          <ListItemText primary="Audit Follow-ups" secondary="Track pending audit actions" />
+        </MenuItem>
+        <MenuItem onClick={() => { handleAuditDetailsClose(); navigate('/admin/audit-completion'); }}>
+          <ListItemIcon><TaskAltIcon fontSize="small" color="success" /></ListItemIcon>
+          <ListItemText primary="Audit Completion" secondary="Review completed audits" />
+        </MenuItem>
+        <MenuItem onClick={() => { handleAuditDetailsClose(); navigate('/admin/audit-files'); }}>
+          <ListItemIcon><UploadFileIcon fontSize="small" color="warning" /></ListItemIcon>
+          <ListItemText primary="Audit File Uploads" secondary="Upload audit supporting files" />
         </MenuItem>
       </Menu>
 

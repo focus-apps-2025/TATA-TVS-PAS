@@ -331,6 +331,13 @@ const UserManagement: React.FC = () => {
       color: AppColors.primaryColor, 
       icon: PersonIcon 
     },
+    {
+      id: 'stock_coordinator',
+      title: 'Stock Coordinator',
+      description: 'Same access and management capabilities as an administrator',
+      color: AppColors.primaryColor,
+      icon: PersonIcon
+    },
     { 
       id: 'team_leader', 
       title: 'Team Leader', 
@@ -633,6 +640,8 @@ const UserManagement: React.FC = () => {
     switch (role) {
       case 'admin':
         return ['#004F98', '#0066CC'];
+      case 'stock_coordinator':
+        return ['#0054A6', '#3B82C4'];
       case 'team_leader':
         return ['#10B981', '#0E9F6E'];
       case 'site_manager':
@@ -649,6 +658,8 @@ const UserManagement: React.FC = () => {
   const getRoleColor = (role: string): string => {
     switch (role) {
       case 'admin':
+        return AppColors.primaryColor;
+      case 'stock_coordinator':
         return AppColors.primaryColor;
       case 'team_leader':
         return AppColors.successColor;
@@ -811,6 +822,7 @@ const UserManagement: React.FC = () => {
                 >
                   <MenuItem value="all">All Roles</MenuItem>
                   <MenuItem value="admin">Administrators</MenuItem>
+                  <MenuItem value="stock_coordinator">Stock Coordinators</MenuItem>
                   <MenuItem value="team_leader">Team Leaders</MenuItem>
                   <MenuItem value="team_member">Team Members</MenuItem>
                 </Select>

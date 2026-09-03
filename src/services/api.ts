@@ -826,6 +826,51 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
 
     deleteBeforeAfterAudit: (teamId: string, auditType: 'before' | 'after'): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/before-after-audits/${teamId}/${auditType}`).then(response => response.data),
+
+    getAuditFollowUps: (): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-follow-ups').then(response => response.data),
+
+    createAuditFollowUp: (data: Record<string, string>): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/audit-follow-ups', data).then(response => response.data),
+
+    replaceAuditFollowUps: (records: Array<Record<string, string>>): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>('/audit-follow-ups', { records }).then(response => response.data),
+
+    updateAuditFollowUp: (id: string, data: Record<string, string>): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/audit-follow-ups/${id}`, data).then(response => response.data),
+
+    deleteAuditFollowUp: (id: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/audit-follow-ups/${id}`).then(response => response.data),
+
+    getAuditCompletions: (month: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-completions', { params: { month } }).then(response => response.data),
+
+    createAuditCompletion: (data: Record<string, string>): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/audit-completions', data).then(response => response.data),
+
+    replaceAuditCompletions: (month: string, records: Array<Record<string, string>>): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>('/audit-completions', { month, records }).then(response => response.data),
+
+    updateAuditCompletion: (id: string, data: Record<string, string>): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/audit-completions/${id}`, data).then(response => response.data),
+
+    deleteAuditCompletion: (id: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/audit-completions/${id}`).then(response => response.data),
+
+    getAuditFiles: (): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files').then(response => response.data),
+
+    uploadAuditFile: (data: { fileName: string; mimeType: string; fileBase64: string }): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/audit-files', data).then(response => response.data),
+
+    downloadAuditFile: (id: string): Promise<Blob> =>
+        apiService.get(`/audit-files/${id}/download`, { responseType: 'blob' }).then(response => response.data),
+
+    renameAuditFile: (id: string, fileName: string): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/audit-files/${id}`, { fileName }).then(response => response.data),
+
+    deleteAuditFile: (id: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/audit-files/${id}`).then(response => response.data),
  }
 
 export default api;

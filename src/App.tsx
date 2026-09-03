@@ -16,6 +16,9 @@ import LoginPage from "./pages/LoginPage";
 import DMSComparison from "./pages/DMSComparison";
 import TeamReport from "./pages/TeamReport";
 import AuditEntryPage from "./pages/AuditEntryPage";
+import AuditFollowUps from "./pages/AuditFollowUps";
+import AuditCompletion from "./pages/AuditCompletion";
+import AuditFileUploads from "./pages/AuditFileUploads";
 import authManager from "./services/authSession";
 
 // Create a custom theme
@@ -77,6 +80,9 @@ function App() {
             <Route path="reports/tvs" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><FinalReport /></RoleProtectedRoute>} />
             <Route path="reports/tata" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><TataFinalReport /></RoleProtectedRoute>} />
             <Route path="reports/3w-tvs" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader']}><ThreeWReconciliation /></RoleProtectedRoute>} />
+            <Route path="audit-follow-ups" element={<RoleProtectedRoute allowedRoles={['admin']}><AuditFollowUps /></RoleProtectedRoute>} />
+            <Route path="audit-completion" element={<RoleProtectedRoute allowedRoles={['admin']}><AuditCompletion /></RoleProtectedRoute>} />
+            <Route path="audit-files" element={<RoleProtectedRoute allowedRoles={['admin']}><AuditFileUploads /></RoleProtectedRoute>} />
           </Route>
           <Route path="/" element={<Navigate to="/admin" />} />
           <Route path="*" element={<Navigate to="/admin" />} />
