@@ -108,10 +108,12 @@ const findColumn = (headers: CellValue[], aliases: string[]) => {
   return -1;
 };
 
+// Groups rows by Rack No + Part No + MRP — duplicate entries sharing all three fields
+// have their quantities summed into a single consolidated row.
 const groupRows = (rows: SourceRow[]) => {
   const grouped = new Map<string, SourceRow>();
   rows.forEach((row) => {
-    const key = `${row.partNo}|${row.mrp.toFixed(2)}`;
+    const key = `${row.rack}|${row.partNo}|${row.mrp.toFixed(2)}`;
     const existing = grouped.get(key);
     if (existing) {
       existing.quantity += row.quantity;
@@ -122,6 +124,22 @@ const groupRows = (rows: SourceRow[]) => {
     }
   });
   return grouped;
+};
+
+// Re-aggregates rack-level groups to Part No + MRP level for DMS comparison
+// (DMS data has no rack info, so comparison is done at part+MRP granularity).
+const aggregateByPartMrp = (grouped: Map<string, SourceRow>) => {
+  const aggregated = new Map<string, SourceRow>();
+  grouped.forEach((row) => {
+    const key = `${row.partNo}|${row.mrp.toFixed(2)}`;
+    const existing = aggregated.get(key);
+    if (existing) {
+      existing.quantity += row.quantity;
+    } else {
+      aggregated.set(key, { ...row });
+    }
+  });
+  return aggregated;
 };
 
 const parseWorkbook = async (file: File, kind: UploadKind): Promise<ParsedWorkbook> => {
@@ -172,8 +190,9 @@ const parseWorkbook = async (file: File, kind: UploadKind): Promise<ParsedWorkbo
 };
 
 const compareSources = (dms: ParsedWorkbook, physical: ParsedWorkbook): ComparisonRow[] => {
-  const dmsGroups = groupRows(dms.rows);
-  const physicalGroups = groupRows(physical.rows);
+  // First group by Rack+Part+MRP, then aggregate to Part+MRP for DMS comparison.
+  const dmsGroups = aggregateByPartMrp(groupRows(dms.rows));
+  const physicalGroups = aggregateByPartMrp(groupRows(physical.rows));
   const keys = new Set([...dmsGroups.keys(), ...physicalGroups.keys()]);
   return [...keys].map((key) => {
     const dmsRow = dmsGroups.get(key);
@@ -202,13 +221,15 @@ const compareSources = (dms: ParsedWorkbook, physical: ParsedWorkbook): Comparis
 };
 
 const buildTemplateRows = (dms: ParsedWorkbook, physical: ParsedWorkbook): TemplateRow[] => {
-  const dmsGroups = groupRows(dms.rows);
+  // DMS aggregated at Part+MRP level; physical kept at Rack+Part+MRP level for template detail.
+  const dmsAggregated = aggregateByPartMrp(groupRows(dms.rows));
+  const physicalGrouped = groupRows(physical.rows);
   const assignedDmsKeys = new Set<string>();
-  const templateRows = [...physical.rows].sort((a, b) => (
+  const templateRows = [...physicalGrouped.values()].sort((a, b) => (
     a.partNo.localeCompare(b.partNo, undefined, { numeric: true }) || a.mrp - b.mrp
   )).map((row) => {
     const key = `${row.partNo}|${row.mrp.toFixed(2)}`;
-    const systemQty = assignedDmsKeys.has(key) ? 0 : (dmsGroups.get(key)?.quantity || 0);
+    const systemQty = assignedDmsKeys.has(key) ? 0 : (dmsAggregated.get(key)?.quantity || 0);
     assignedDmsKeys.add(key);
     return { ...row, systemQty };
   });
@@ -455,7 +476,7 @@ const ThreeWReconciliation = () => {
     <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/reports')} sx={{ mb: 2, color: '#475569' }}>Back to reports</Button>
     <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mb: 4 }}><Avatar sx={{ width: 56, height: 56, bgcolor: '#E6F7F3', color: teal }}><DirectionsBus fontSize="large" /></Avatar><Box><Typography variant="h4" fontWeight={850} color="#123B45">3W TVS Reconciliation</Typography><Typography color="text.secondary" sx={{ mt: 0.5 }}>Compare grouped DMS and physical count-sheet data, then download the five-sheet Excel workbook.</Typography></Box></Box>
     <Stepper activeStep={comparison.length ? 3 : dmsData || physicalData ? 2 : 1} alternativeLabel sx={{ mb: 4, '& .MuiStepLabel-label': { fontWeight: 600 } }}>{steps.map((step) => <Step key={step}><StepLabel>{step}</StepLabel></Step>)}</Stepper>
-    <Alert icon={<InfoOutlined />} severity="info" sx={{ mb: 3, borderRadius: 2 }}>Duplicates are grouped separately in DMS and physical files by <strong>Part No. + MRP</strong>; their quantities are summed before comparison. Missing items are assigned quantity 0. NDP and master descriptions are not required.</Alert>
+    <Alert icon={<InfoOutlined />} severity="info" sx={{ mb: 3, borderRadius: 2 }}>Physical file rows with the same <strong>Rack No. + Part No. + MRP</strong> are consolidated (quantities summed) before comparison. DMS rows are grouped by <strong>Part No. + MRP</strong>. Missing items are assigned quantity 0.</Alert>
     {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError('')}>{error}</Alert>}
     <Card sx={{ mb: 3, boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)', border: '1px solid #E2E8F0' }}><CardContent sx={{ p: { xs: 2.5, md: 3 } }}><Typography variant="h6" fontWeight={800}>Reconciliation details</Typography><Grid container spacing={2} sx={{ mt: 0.5 }}><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Reconciliation name" placeholder="e.g. Teppets 3W — August 2026" value={reconciliationName} onChange={(event) => setReconciliationName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Dealership name" placeholder="e.g. Teepees Future Mobility LLP" value={dealershipName} onChange={(event) => setDealershipName(event.target.value)} /></Grid><Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Location" placeholder="e.g. Kasaragod, Kerala" value={locationName} onChange={(event) => setLocationName(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Dealer ID" placeholder="e.g. 14854" value={dealerId} onChange={(event) => setDealerId(event.target.value)} helperText="Displayed in TEMPLATE" /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Branch ID" placeholder="Enter branch ID" value={branchId} onChange={(event) => setBranchId(event.target.value)} helperText="Displayed in TEMPLATE" /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit start date" type="date" value={auditStartDate} onChange={(event) => setAuditStartDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid><Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Audit close date" type="date" value={auditCloseDate} onChange={(event) => setAuditCloseDate(event.target.value)} InputLabelProps={{ shrink: true }} /></Grid></Grid></CardContent></Card>
     <Typography variant="h6" fontWeight={800} sx={{ mb: 1 }}>Upload source files</Typography><Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>The raw uploads are retained in the exported workbook as COUNT SHEET and P201.</Typography>
