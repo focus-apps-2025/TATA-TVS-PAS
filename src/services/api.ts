@@ -857,10 +857,16 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
     deleteAuditCompletion: (id: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/audit-completions/${id}`).then(response => response.data),
 
-    getAuditFiles: (): Promise<ApiResponse> =>
-        apiService.get<ApiResponse>('/audit-files').then(response => response.data),
+    getAuditFiles: (financialYear?: string, month?: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files', { params: { financialYear, month } }).then(response => response.data),
 
-    uploadAuditFile: (data: { fileName: string; mimeType: string; fileBase64: string }): Promise<ApiResponse> =>
+    getAuditFinancialYears: (): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files/financial-years').then(response => response.data),
+
+    createAuditFinancialYear: (title: string): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/audit-files/financial-years', { title }).then(response => response.data),
+
+    uploadAuditFile: (data: { financialYear: string; month: string; fileName: string; mimeType: string; fileBase64: string }): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/audit-files', data).then(response => response.data),
 
     downloadAuditFile: (id: string): Promise<Blob> =>
