@@ -31,10 +31,16 @@ interface ExistingUpload {
 }
 
 const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+const partNoAliases = ['Part No', 'PartNo', 'Part Number', 'Part Code', 'Item'];
+const quantityAliases = ['Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty'];
 
 const getRowValue = (row: any, aliases: string[]) => {
   const normalizedAliases = aliases.map(normalizeHeader);
-  const key = Object.keys(row).find((header) => normalizedAliases.includes(normalizeHeader(header)));
+  const key = Object.keys(row).find((header) => {
+    const normalizedHeader = normalizeHeader(header);
+    // Some DMS exports append a suffix to duplicated headings, e.g. "Part No#3".
+    return normalizedAliases.some((alias) => normalizedHeader === alias || normalizedHeader.startsWith(alias));
+  });
   return key ? row[key] : undefined;
 };
 
@@ -42,6 +48,18 @@ const toNumber = (value: any): number => {
   if (value === undefined || value === null || value === '') return 0;
   const parsed = Number(String(value).replace(/,/g, '').trim());
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const findHeaderRow = (sheet: XLSX.WorkSheet) => {
+  const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+  const requiredPartHeaders = partNoAliases.map(normalizeHeader);
+  const requiredQuantityHeaders = quantityAliases.map(normalizeHeader);
+
+  return rows.findIndex((row) => {
+    const headers = (Array.isArray(row) ? row : []).map((cell) => normalizeHeader(String(cell)));
+    return headers.some((header) => requiredPartHeaders.some((alias) => header === alias || header.startsWith(alias)))
+      && headers.some((header) => requiredQuantityHeaders.some((alias) => header === alias || header.startsWith(alias)));
+  });
 };
 
 const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, onSuccess }) => {
@@ -98,11 +116,19 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
           const workbook = XLSX.read(data, { type: 'binary' });
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
-          const rawJson = XLSX.utils.sheet_to_json(sheet);
+          // DMS exports sometimes contain a title or blank rows above the real header.
+          // Locate the Part No + Quantity header instead of assuming it is the first row.
+          const headerRow = findHeaderRow(sheet);
+          if (headerRow === -1) {
+            setError('DMS file must contain Part No and Quantity/Total Stock columns.');
+            setLoading(false);
+            return;
+          }
+          const rawJson = XLSX.utils.sheet_to_json(sheet, { range: headerRow, defval: '' });
 
           const items = rawJson.map((row: any) => {
-            const partNo = getRowValue(row, ['Part No', 'PartNo', 'Part Number', 'Part Code', 'Item']);
-            const rawQty = getRowValue(row, ['Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty']);
+            const partNo = getRowValue(row, partNoAliases);
+            const rawQty = getRowValue(row, quantityAliases);
             const rawNdp = getRowValue(row, ['NEW NDP', 'NDP', 'Unit Value', 'Unit Price', 'Net Dealer Price']);
             const rawMrp = getRowValue(row, ['NEW MRP', 'MRP', 'Total Value', 'Max Retail Price', 'Retail Price']);
             const description = getRowValue(row, ['Description', 'Desc', 'Part Description', 'Material Description', 'Item Description']) || '';
@@ -118,13 +144,6 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
 
           if (items.length === 0) {
             setError('No valid data found in the Excel file.');
-            setLoading(false);
-            return;
-          }
-
-          const hasMissingRequiredValues = items.some(item => !item.partNo || item.quantity === 0);
-          if (hasMissingRequiredValues) {
-            setError('DMS file must contain Part No and Quantity/Total Stock columns with valid values.');
             setLoading(false);
             return;
           }
