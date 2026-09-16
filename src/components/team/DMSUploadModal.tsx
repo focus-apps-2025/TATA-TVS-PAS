@@ -31,16 +31,28 @@ interface ExistingUpload {
 }
 
 const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-const partNoAliases = ['Part No', 'PartNo', 'Part Number', 'Part Code', 'Item'];
-const quantityAliases = ['Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty'];
+// Column order is intentionally irrelevant.  Different DMS/SAP exports use different headings.
+const partNoAliases = [
+  'Part No', 'Part Number', 'Part Code', 'Item', 'Item Code', 'Item Number',
+  'Material', 'Material Code', 'Material Number', 'Spare Part No', 'Spare Part Number'
+];
+const quantityAliases = [
+  'Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty', 'Free Stock',
+  'System Qty', 'System Quantity', 'Available Qty', 'Available Quantity',
+  'Closing Stock', 'On Hand Qty', 'On Hand Quantity', 'Unrestricted Stock'
+];
+
+const matchesAlias = (header: string, aliases: string[]) => {
+  const normalizedHeader = normalizeHeader(header);
+  return aliases.map(normalizeHeader).some((alias) => (
+    normalizedHeader === alias
+    // SAP may suffix duplicate headings, for example Part No#3.
+    || (alias !== 'item' && alias.length > 3 && normalizedHeader.startsWith(alias))
+  ));
+};
 
 const getRowValue = (row: any, aliases: string[]) => {
-  const normalizedAliases = aliases.map(normalizeHeader);
-  const key = Object.keys(row).find((header) => {
-    const normalizedHeader = normalizeHeader(header);
-    // Some DMS exports append a suffix to duplicated headings, e.g. "Part No#3".
-    return normalizedAliases.some((alias) => normalizedHeader === alias || normalizedHeader.startsWith(alias));
-  });
+  const key = Object.keys(row).find((header) => matchesAlias(header, aliases));
   return key ? row[key] : undefined;
 };
 
@@ -52,13 +64,11 @@ const toNumber = (value: any): number => {
 
 const findHeaderRow = (sheet: XLSX.WorkSheet) => {
   const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
-  const requiredPartHeaders = partNoAliases.map(normalizeHeader);
-  const requiredQuantityHeaders = quantityAliases.map(normalizeHeader);
 
   return rows.findIndex((row) => {
-    const headers = (Array.isArray(row) ? row : []).map((cell) => normalizeHeader(String(cell)));
-    return headers.some((header) => requiredPartHeaders.some((alias) => header === alias || header.startsWith(alias)))
-      && headers.some((header) => requiredQuantityHeaders.some((alias) => header === alias || header.startsWith(alias)));
+    const headers = (Array.isArray(row) ? row : []).map((cell) => String(cell));
+    return headers.some((header) => matchesAlias(header, partNoAliases))
+      && headers.some((header) => matchesAlias(header, quantityAliases));
   });
 };
 
@@ -114,17 +124,17 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
         try {
           const data = e.target?.result;
           const workbook = XLSX.read(data, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          // DMS exports sometimes contain a title or blank rows above the real header.
-          // Locate the Part No + Quantity header instead of assuming it is the first row.
-          const headerRow = findHeaderRow(sheet);
-          if (headerRow === -1) {
+          // SAP/DMS workbooks can open on a cover sheet or include a metadata tab.
+          // Search every worksheet and use the one containing the stock headers.
+          const matchedSheet = workbook.SheetNames
+            .map((sheetName) => ({ sheet: workbook.Sheets[sheetName], headerRow: findHeaderRow(workbook.Sheets[sheetName]) }))
+            .find(({ headerRow }) => headerRow !== -1);
+          if (!matchedSheet) {
             setError('DMS file must contain Part No and Quantity/Total Stock columns.');
             setLoading(false);
             return;
           }
-          const rawJson = XLSX.utils.sheet_to_json(sheet, { range: headerRow, defval: '' });
+          const rawJson = XLSX.utils.sheet_to_json(matchedSheet.sheet, { range: matchedSheet.headerRow, defval: '' });
 
           const items = rawJson.map((row: any) => {
             const partNo = getRowValue(row, partNoAliases);
