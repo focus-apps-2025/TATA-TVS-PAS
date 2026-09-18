@@ -220,7 +220,8 @@ const LoginPage: React.FC = () => {
     const checkAuth = async () => {
       const loggedIn = await authManager.isLoggedIn();
       if (loggedIn) {
-        navigate('/admin');
+        const user = await authManager.getCurrentUser();
+        navigate(user?.role === 'accountant' ? '/admin/accountant' : '/admin');
       }
     };
     checkAuth();
@@ -244,13 +245,13 @@ const LoginPage: React.FC = () => {
       const result = await api.login(email, password);
 
       if (result.success) {
-        const allowedRoles = ['admin', 'team_leader', 'site_manager'/*, 'team_member', 'team_assistant'*/];
+        const allowedRoles = ['admin', 'accountant', 'stock_coordinator', 'team_leader', 'site_manager'/*, 'team_member', 'team_assistant'*/];
         if (!allowedRoles.includes(result.user?.role || '')) {
           setError('Access Restricted: Your role cannot access this portal.');
           await api.logout();
           return;
         }
-        navigate('/admin');
+        navigate(result.user?.role === 'accountant' ? '/admin/accountant' : '/admin');
       } else {
         setError(result.message || 'Invalid email or password. Please try again.');
       }
@@ -335,7 +336,7 @@ const LoginPage: React.FC = () => {
               <Stack spacing={3.5}>
                 <StyledTextField
                   fullWidth
-                  label="Administrator Email"
+                  label="Email"
                   placeholder="Hello@focus.com"
                   value={email}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}

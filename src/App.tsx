@@ -19,6 +19,7 @@ import AuditEntryPage from "./pages/AuditEntryPage";
 import AuditFollowUps from "./pages/AuditFollowUps";
 import AuditCompletion from "./pages/AuditCompletion";
 import AuditFileUploads from "./pages/AuditFileUploads";
+import AccountantPage from "./pages/AccountantPage";
 import authManager from "./services/authSession";
 
 // Create a custom theme
@@ -57,7 +58,9 @@ const RoleProtectedRoute = ({ children, allowedRoles }: { children: React.ReactE
   }, []);
 
   if (role === null) return null;
-  return !allowedRoles.includes(role) ? <Navigate to="/admin/teams" replace /> : children;
+  return !allowedRoles.includes(role)
+    ? <Navigate to={role === 'accountant' ? '/admin/accountant' : '/admin/teams'} replace />
+    : children;
 };
 
 function App() {
@@ -68,9 +71,10 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager'/*, 'team_assistant'*/]}><AdminDashboard /></RoleProtectedRoute>} />
+            <Route path="accountant" element={<RoleProtectedRoute allowedRoles={['admin', 'accountant']}><AccountantPage /></RoleProtectedRoute>} />
             <Route path="users" element={<RoleProtectedRoute allowedRoles={['admin']}><UserManagement /></RoleProtectedRoute>} />
-            <Route path="teams" element={<TeamManagement />} />
-            <Route path="teams/:teamId" element={<TeamManagement />} />
+            <Route path="teams" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager', 'team_member']}><TeamManagement /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager', 'team_member']}><TeamManagement /></RoleProtectedRoute>} />
             <Route path="teams/:teamId/dms-comparison" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><DMSComparison /></RoleProtectedRoute>} />
             <Route path="teams/:teamId/report" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><TeamReport /></RoleProtectedRoute>} />
             <Route path="teams/:teamId/before-entry" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><AuditEntryPage auditType="before" /></RoleProtectedRoute>} />

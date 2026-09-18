@@ -89,6 +89,24 @@ export interface Rack {
     [key: string]: any;
 }
 
+export interface AccountantCalculationInput {
+    auditDate: string;
+    auditEndDate: string;
+    auditType: string;
+    subCategory?: string;
+    dealerName?: string;
+    location: string;
+    rate: number;
+    uniqueCount: number;
+    travel?: number;
+    food?: number;
+    stay?: number;
+    other?: number;
+    teamSalary?: number;
+    additionalCharges?: number;
+    auditStatus: string;
+}
+
 interface ScanCounts {
     [userName: string]: number;
 }
@@ -385,6 +403,14 @@ const api = {
                 };
             }
         }),
+
+    saveAccountantCalculation: (data: AccountantCalculationInput): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/accountant-calculations', data).then((response) => response.data),
+
+    exportAccountantCalculations: async (filters: { from?: string; to?: string; auditType?: string }): Promise<Blob> => {
+        const response = await apiService.get('/accountant-calculations/export', { params: filters, responseType: 'blob' });
+        return response.data;
+    },
 
     // Team endpoints
     getTeams: (): Promise<Team[]> =>

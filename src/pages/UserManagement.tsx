@@ -336,6 +336,13 @@ const UserManagement: React.FC = () => {
       title: 'Stock Coordinator',
       description: 'Same access and management capabilities as an administrator',
       color: AppColors.primaryColor,
+      icon: PersonIcon 
+    },
+    {
+      id: 'accountant',
+      title: 'Accountant',
+      description: 'Same access and management capabilities as an administrator',
+      color: AppColors.primaryColor,
       icon: PersonIcon
     },
     { 
@@ -642,6 +649,8 @@ const UserManagement: React.FC = () => {
         return ['#004F98', '#0066CC'];
       case 'stock_coordinator':
         return ['#0054A6', '#3B82C4'];
+      case 'accountant':
+        return ['#0054A6', '#3B82C4'];
       case 'team_leader':
         return ['#10B981', '#0E9F6E'];
       case 'site_manager':
@@ -660,6 +669,8 @@ const UserManagement: React.FC = () => {
       case 'admin':
         return AppColors.primaryColor;
       case 'stock_coordinator':
+        return AppColors.primaryColor;
+      case 'accountant':
         return AppColors.primaryColor;
       case 'team_leader':
         return AppColors.successColor;
@@ -822,6 +833,7 @@ const UserManagement: React.FC = () => {
                 >
                   <MenuItem value="all">All Roles</MenuItem>
                   <MenuItem value="admin">Administrators</MenuItem>
+                  <MenuItem value="accountant">Accountants</MenuItem>
                   <MenuItem value="stock_coordinator">Stock Coordinators</MenuItem>
                   <MenuItem value="team_leader">Team Leaders</MenuItem>
                   <MenuItem value="team_member">Team Members</MenuItem>
