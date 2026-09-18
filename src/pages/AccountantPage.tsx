@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Container, Divider, Grid, MenuItem, Paper,
-  Stack, TextField, Typography
+  Stack, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination,
+  TableRow, TextField, Typography
 } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -69,6 +70,15 @@ export default function AccountantPage() {
   const [exporting, setExporting] = useState<'complete' | 'type' | null>(null);
   const [message, setMessage] = useState('');
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [savedRecords, setSavedRecords] = useState<any[]>([]);
+  const [viewPage, setViewPage] = useState(0);
+  const [viewTotal, setViewTotal] = useState(0);
+  const [viewSearch, setViewSearch] = useState('');
+  const [viewAuditType, setViewAuditType] = useState('');
+  const [viewAuditStatus, setViewAuditStatus] = useState('');
+  const [viewFromDate, setViewFromDate] = useState('');
+  const [viewToDate, setViewToDate] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const selectedType = auditTypes.find((type) => type.value === form.auditType);
 
   useEffect(() => {
@@ -79,14 +89,31 @@ export default function AccountantPage() {
 
   const loadSavedCount = async () => {
     try {
-      const records = await api.getAccountantCalculations();
-      setSavedCount(records.length);
+      const result = await api.getAccountantCalculations({ limit: 1 });
+      setSavedCount(result.pagination.total);
     } catch {
       setSavedCount(null);
     }
   };
 
   useEffect(() => { loadSavedCount(); }, []);
+
+  const loadSavedRecords = async () => {
+    try {
+      const result = await api.getAccountantCalculations({
+        page: viewPage + 1, limit: 10, search: viewSearch || undefined,
+        auditType: viewAuditType || undefined, auditStatus: viewAuditStatus || undefined,
+        from: viewFromDate || undefined, to: viewToDate || undefined,
+      });
+      setSavedRecords(result.records);
+      setViewTotal(result.pagination.total);
+    } catch {
+      setSavedRecords([]);
+      setViewTotal(0);
+    }
+  };
+
+  useEffect(() => { loadSavedRecords(); }, [viewPage, viewSearch, viewAuditType, viewAuditStatus, viewFromDate, viewToDate]);
   const locationRate = locations.find((location) => location.label === form.location)?.rate || 0;
   const isTataAccessories = form.auditType === 'TATA' && form.subCategory === 'TATA Accessories';
   const lineCount = numberValue(form.uniqueCount);
@@ -128,9 +155,9 @@ export default function AccountantPage() {
         uniqueCount: numberValue(form.uniqueCount), travel: numberValue(form.travel), food: numberValue(form.food),
         stay: numberValue(form.stay), other: numberValue(form.other), teamSalary: numberValue(form.teamSalary), additionalCharges: numberValue(form.additionalCharges), auditStatus: form.auditStatus,
       };
-      const result = await api.saveAccountantCalculation(payload);
-      setMessage(result.success ? 'Calculation saved successfully.' : result.message || 'Unable to save calculation.');
-      if (result.success) await loadSavedCount();
+      const result = editingId ? await api.updateAccountantCalculation(editingId, payload) : await api.saveAccountantCalculation(payload);
+      setMessage(result.success ? `Calculation ${editingId ? 'updated' : 'saved'} successfully.` : result.message || 'Unable to save calculation.');
+      if (result.success) { setEditingId(null); await loadSavedCount(); await loadSavedRecords(); }
     } catch {
       setMessage('Unable to save calculation. Please try again.');
     } finally {
@@ -172,6 +199,20 @@ export default function AccountantPage() {
     { key: 'teamSalary', label: 'Team Salary' }, { key: 'additionalCharges', label: 'Additional Charges' },
   ];
 
+  const editCalculation = (record: any) => {
+    const dateValue = (value: string) => value ? new Date(value).toISOString().slice(0, 10) : '';
+    setForm({ auditDate: dateValue(record.auditDate), auditEndDate: dateValue(record.auditEndDate), auditType: record.auditType || '', subCategory: record.subCategory || '', location: record.location === 'Not applicable' ? '' : record.location || '', dealerName: record.dealerName || '', uniqueCount: String(record.uniqueCount ?? ''), travel: String(record.travel ?? ''), food: String(record.food ?? ''), stay: String(record.stay ?? ''), other: String(record.other ?? ''), teamSalary: String(record.teamSalary ?? ''), additionalCharges: String(record.additionalCharges ?? ''), auditStatus: record.auditStatus || 'In Progress' });
+    setEditingId(record._id || record.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const deleteCalculation = async (record: any) => {
+    if (!window.confirm(`Delete the calculation for ${record.dealerName || record.auditType}?`)) return;
+    const result = await api.deleteAccountantCalculation(record._id || record.id);
+    setMessage(result.success ? 'Calculation deleted.' : result.message || 'Unable to delete calculation.');
+    if (result.success) { await loadSavedCount(); await loadSavedRecords(); }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 2.5 } }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
@@ -179,7 +220,7 @@ export default function AccountantPage() {
           <Typography variant="h5" fontWeight={800} color="primary">Audit Amount Calculator</Typography>
           <Typography variant="body2" color="text.secondary">Save audit costs and export calculations.</Typography>
         </Box>
-        <Button size="small" startIcon={<RestartAltIcon />} onClick={() => setForm(initialValues)} variant="outlined">Clear</Button>
+        <Button size="small" startIcon={<RestartAltIcon />} onClick={() => { setForm(initialValues); setEditingId(null); }} variant="outlined">Clear</Button>
       </Stack>
 
       <Alert severity="info" sx={{ mb: 1.5, py: 0, '& .MuiAlert-message': { py: 0.75, fontSize: '0.82rem' } }}>Location rate applies to all audits except TATA Accessories, which uses the fixed line-count slabs. GST is separate.</Alert>
@@ -217,7 +258,7 @@ export default function AccountantPage() {
             <Typography variant="overline" color="primary" fontWeight={800}>Step 2</Typography>
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Expenses</Typography>
             <Grid container spacing={1.25}>{moneyFields.map((field) => <Grid key={field.key} size={{ xs: 12, sm: 6, md: 4 }}><TextField size="small" fullWidth label={field.label} type="number" inputProps={{ min: 0, step: '0.01' }} value={form[field.key]} onChange={(e) => update(field.key, e.target.value)} InputProps={{ startAdornment: <Typography variant="body2" sx={{ mr: 0.5 }}>₹</Typography> }} /></Grid>)}</Grid>
-            <Button sx={{ mt: 1.75, px: 3 }} variant="contained" size="small" startIcon={<SaveIcon />} onClick={saveCalculation} disabled={saving}>{saving ? 'Saving...' : 'Save Calculation'}</Button>
+            <Button sx={{ mt: 1.75, px: 3 }} variant="contained" size="small" startIcon={<SaveIcon />} onClick={saveCalculation} disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update Calculation' : 'Save Calculation'}</Button>
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -232,6 +273,26 @@ export default function AccountantPage() {
           </Paper>
         </Grid>
       </Grid>
+      <Paper sx={{ mt: 2, overflow: 'hidden' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, borderBottom: '1px solid #E2E8F0' }}>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Saved calculations</Typography>
+          <Grid container spacing={1.25}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField size="small" fullWidth label="Search dealer, location, or type" value={viewSearch} onChange={(e) => { setViewSearch(e.target.value); setViewPage(0); }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField size="small" select fullWidth label="Audit Type" value={viewAuditType} onChange={(e) => { setViewAuditType(e.target.value); setViewPage(0); }}><MenuItem value="">All types</MenuItem>{auditTypes.map((type) => <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>)}</TextField></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField size="small" select fullWidth label="Audit Status" value={viewAuditStatus} onChange={(e) => { setViewAuditStatus(e.target.value); setViewPage(0); }}><MenuItem value="">All statuses</MenuItem>{['In Progress', 'Completed', 'ReAudit', 'On Hold'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField size="small" fullWidth label="From" type="date" value={viewFromDate} onChange={(e) => { setViewFromDate(e.target.value); setViewPage(0); }} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField size="small" fullWidth label="To" type="date" value={viewToDate} onChange={(e) => { setViewToDate(e.target.value); setViewPage(0); }} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+            <Grid size={{ xs: 12, md: 1 }}><Button size="small" fullWidth sx={{ height: '100%' }} onClick={() => { setViewSearch(''); setViewAuditType(''); setViewAuditStatus(''); setViewFromDate(''); setViewToDate(''); setViewPage(0); }}>Clear</Button></Grid>
+          </Grid>
+        </Box>
+        <TableContainer sx={{ maxHeight: 360 }}>
+          <Table stickyHeader size="small">
+            <TableHead><TableRow>{['S.No', 'Start', 'End', 'Type', 'Dealer', 'Location', 'Taxable', 'P&L', 'P&L Status', 'Audit Status', 'Actions'].map((header) => <TableCell key={header} sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{header}</TableCell>)}</TableRow></TableHead>
+            <TableBody>{savedRecords.length ? savedRecords.map((record, index) => <TableRow hover key={record._id || record.id}><TableCell>{viewPage * 10 + index + 1}</TableCell><TableCell>{new Date(record.auditDate).toLocaleDateString('en-GB')}</TableCell><TableCell>{new Date(record.auditEndDate).toLocaleDateString('en-GB')}</TableCell><TableCell>{record.subCategory || record.auditType}</TableCell><TableCell>{record.dealerName || '—'}</TableCell><TableCell>{record.location}</TableCell><TableCell>{currency.format(record.taxableAmount)}</TableCell><TableCell>{currency.format(record.profitLoss)}</TableCell><TableCell><Box component="span" sx={{ px: 1, py: 0.25, borderRadius: 1, fontWeight: 700, bgcolor: record.pnlStatus === 'Profit' ? '#C6EFCE' : '#FFC7CE', color: record.pnlStatus === 'Profit' ? '#006100' : '#9C0006' }}>{record.pnlStatus}</Box></TableCell><TableCell>{record.auditStatus}</TableCell><TableCell><Stack direction="row" spacing={0.5}><Button size="small" onClick={() => editCalculation(record)}>Edit</Button><Button size="small" color="error" onClick={() => deleteCalculation(record)}>Delete</Button></Stack></TableCell></TableRow>) : <TableRow><TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>No saved calculations match these filters.</TableCell></TableRow>}</TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination component="div" count={viewTotal} page={viewPage} rowsPerPage={10} rowsPerPageOptions={[10]} onPageChange={(_, nextPage) => setViewPage(nextPage)} />
+      </Paper>
     </Container>
   );
 }

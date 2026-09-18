@@ -412,8 +412,19 @@ const api = {
                 message: error.response?.data?.message || error.message || 'Unable to save calculation.',
             })),
 
-    getAccountantCalculations: (): Promise<any[]> =>
-        apiService.get<ApiResponse<{ records: any[] }>>('/accountant-calculations').then((response) => response.data.records || []),
+    updateAccountantCalculation: (id: string, data: AccountantCalculationInput): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/accountant-calculations/${id}`, data)
+            .then((response) => response.data)
+            .catch((error: any) => ({ success: false, message: error.response?.data?.message || error.message || 'Unable to update calculation.' })),
+
+    deleteAccountantCalculation: (id: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/accountant-calculations/${id}`)
+            .then((response) => response.data)
+            .catch((error: any) => ({ success: false, message: error.response?.data?.message || error.message || 'Unable to delete calculation.' })),
+
+    getAccountantCalculations: (filters: { page?: number; limit?: number; from?: string; to?: string; auditType?: string; auditStatus?: string; search?: string } = {}): Promise<{ records: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> =>
+        apiService.get<ApiResponse<{ records: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>>('/accountant-calculations', { params: filters })
+            .then((response) => ({ records: response.data.records || [], pagination: response.data.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 } })),
 
     exportAccountantCalculations: async (filters: { from?: string; to?: string; auditType?: string }): Promise<{ data: Blob; count: number | null }> => {
         const response = await apiService.get('/accountant-calculations/export', { params: filters, responseType: 'blob' });
