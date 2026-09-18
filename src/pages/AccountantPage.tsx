@@ -68,6 +68,7 @@ export default function AccountantPage() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState<'complete' | 'type' | null>(null);
   const [message, setMessage] = useState('');
+  const [savedCount, setSavedCount] = useState<number | null>(null);
   const selectedType = auditTypes.find((type) => type.value === form.auditType);
 
   useEffect(() => {
@@ -75,6 +76,17 @@ export default function AccountantPage() {
     const timer = window.setTimeout(() => setMessage(''), 2000);
     return () => window.clearTimeout(timer);
   }, [message]);
+
+  const loadSavedCount = async () => {
+    try {
+      const records = await api.getAccountantCalculations();
+      setSavedCount(records.length);
+    } catch {
+      setSavedCount(null);
+    }
+  };
+
+  useEffect(() => { loadSavedCount(); }, []);
   const locationRate = locations.find((location) => location.label === form.location)?.rate || 0;
   const isTataAccessories = form.auditType === 'TATA' && form.subCategory === 'TATA Accessories';
   const lineCount = numberValue(form.uniqueCount);
@@ -118,6 +130,7 @@ export default function AccountantPage() {
       };
       const result = await api.saveAccountantCalculation(payload);
       setMessage(result.success ? 'Calculation saved successfully.' : result.message || 'Unable to save calculation.');
+      if (result.success) await loadSavedCount();
     } catch {
       setMessage('Unable to save calculation. Please try again.');
     } finally {
@@ -134,8 +147,12 @@ export default function AccountantPage() {
     if (kind === 'type' && !auditType) return;
     setExporting(kind);
     try {
-      const data = await api.exportAccountantCalculations({ from: fromDate || undefined, to: toDate || undefined, auditType: auditType || undefined });
-      const url = URL.createObjectURL(data);
+      const exportResult = await api.exportAccountantCalculations({ from: fromDate || undefined, to: toDate || undefined, auditType: auditType || undefined });
+      if (exportResult.count === 0) {
+        setMessage('No saved calculations match the selected export filters.');
+        return;
+      }
+      const url = URL.createObjectURL(exportResult.data);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${auditType ? `${auditType.toLowerCase()}-` : 'complete-'}audit-calculations.xlsx`;
@@ -169,7 +186,7 @@ export default function AccountantPage() {
       {message && <Alert severity={message.includes('successfully') || message.includes('downloaded') ? 'success' : 'warning'} sx={{ mb: 1.5, py: 0 }} onClose={() => setMessage('')}>{message}</Alert>}
 
       <Paper sx={{ p: { xs: 1.75, sm: 2 }, mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Export saved calculations</Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Typography variant="subtitle1" fontWeight={700}>Export saved calculations</Typography><Typography variant="caption" color={savedCount === null ? 'text.secondary' : savedCount ? 'success.main' : 'warning.main'}>{savedCount === null ? 'Checking saved records…' : `${savedCount} saved record${savedCount === 1 ? '' : 's'}`}</Typography></Stack>
         <Grid container spacing={1.25} alignItems="center">
           <Grid size={{ xs: 12, sm: 6, md: 2 }}><TextField size="small" fullWidth label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2 }}><TextField size="small" fullWidth label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>

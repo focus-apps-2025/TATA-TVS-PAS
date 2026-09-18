@@ -405,11 +405,20 @@ const api = {
         }),
 
     saveAccountantCalculation: (data: AccountantCalculationInput): Promise<ApiResponse> =>
-        apiService.post<ApiResponse>('/accountant-calculations', data).then((response) => response.data),
+        apiService.post<ApiResponse>('/accountant-calculations', data)
+            .then((response) => response.data)
+            .catch((error: any) => ({
+                success: false,
+                message: error.response?.data?.message || error.message || 'Unable to save calculation.',
+            })),
 
-    exportAccountantCalculations: async (filters: { from?: string; to?: string; auditType?: string }): Promise<Blob> => {
+    getAccountantCalculations: (): Promise<any[]> =>
+        apiService.get<ApiResponse<{ records: any[] }>>('/accountant-calculations').then((response) => response.data.records || []),
+
+    exportAccountantCalculations: async (filters: { from?: string; to?: string; auditType?: string }): Promise<{ data: Blob; count: number | null }> => {
         const response = await apiService.get('/accountant-calculations/export', { params: filters, responseType: 'blob' });
-        return response.data;
+        const recordCount = response.headers['x-calculation-count'];
+        return { data: response.data, count: recordCount === undefined ? null : Number(recordCount) };
     },
 
     // Team endpoints
