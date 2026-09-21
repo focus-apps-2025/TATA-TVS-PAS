@@ -70,6 +70,7 @@ interface UserProfile {
 
 const auditChartTypes = ['TATA', 'TVS', 'JBM', 'Honda'];
 const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
+const stateChartColors = ['#9DBDEB', '#93DCCD', '#FFD18D', '#CDBEEF', '#FFAAA5', '#A7D7F5'];
 const currentMonthKey = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -90,21 +91,25 @@ const countAuditTypes = (records: any[]) => auditChartTypes.map((type) => ({
   }).length,
 }));
 
-const AuditTypePie: React.FC<{ title: string; records: any[]; loading: boolean }> = ({ title, records, loading }) => {
-  const segments = countAuditTypes(records);
+const AuditStatePie: React.FC<{ title: string; records: any[]; loading: boolean }> = ({ title, records, loading }) => {
+  const segments = Object.entries(records.reduce((groups: Record<string, number>, record) => {
+    const state = String(record.state || 'Not specified').trim() || 'Not specified';
+    groups[state] = (groups[state] || 0) + 1;
+    return groups;
+  }, {})).map(([label, count]) => ({ label, count }));
   const total = segments.reduce((sum, segment) => sum + segment.count, 0);
   let progress = 0;
   const background = total ? `conic-gradient(${segments.map((segment, index) => {
     const start = (progress / total) * 100;
     progress += segment.count;
-    return `${auditChartColors[index]} ${start}% ${(progress / total) * 100}%`;
+    return `${stateChartColors[index % stateChartColors.length]} ${start}% ${(progress / total) * 100}%`;
   }).join(', ')})` : '#E2E8F0';
   return <Paper elevation={0} sx={{ p: 2.5, height: '100%', border: '1px solid #E2E8F0', borderRadius: 3 }}>
     <Typography fontWeight={800} color="#172B4D">{title}</Typography>
-    <Typography variant="body2" color="text.secondary">Audit-type distribution</Typography>
+    <Typography variant="body2" color="text.secondary">State-wise distribution</Typography>
     <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-around" spacing={2} sx={{ pt: 2 }}>
       <Box sx={{ width: 156, height: 156, borderRadius: '50%', p: '13px', background, flexShrink: 0 }}><Box sx={{ width: '100%', height: '100%', borderRadius: '50%', bgcolor: 'background.paper', display: 'grid', placeItems: 'center', textAlign: 'center' }}><Box><Typography variant="h5" fontWeight={800}>{loading ? '—' : total}</Typography><Typography variant="caption" color="text.secondary">records</Typography></Box></Box></Box>
-      <Stack spacing={0.85} sx={{ width: { xs: '100%', sm: 150 } }}>{segments.map((segment, index) => <Stack key={segment.label} direction="row" justifyContent="space-between" alignItems="center"><Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: auditChartColors[index] }} /><Typography variant="body2" fontWeight={700}>{segment.label}</Typography></Stack><Typography variant="body2" fontWeight={800}>{loading ? '—' : segment.count}</Typography></Stack>)}</Stack>
+      <Stack spacing={0.85} sx={{ width: { xs: '100%', sm: 170 } }}>{segments.map((segment, index) => <Stack key={segment.label} direction="row" justifyContent="space-between" alignItems="center"><Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: stateChartColors[index % stateChartColors.length] }} /><Typography variant="body2" fontWeight={700}>{segment.label}</Typography></Stack><Typography variant="body2" fontWeight={800}>{loading ? '—' : `${segment.count} · ${total ? Math.round((segment.count / total) * 100) : 0}%`}</Typography></Stack>)}</Stack>
     </Stack>
   </Paper>;
 };
@@ -458,8 +463,8 @@ const AdminDashboard: React.FC = () => {
             {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label} Teams</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Active and completed</Typography></Paper>)}
           </Box>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Follow-ups — Current Month" records={followUpRecords} loading={isDataLoading} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Completion — Current Month" records={completionRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Follow-ups — Current Month" records={followUpRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Completion — Current Month" records={completionRecords} loading={isDataLoading} /></Grid>
           </Grid>
         </Box>}
 

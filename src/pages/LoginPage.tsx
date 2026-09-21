@@ -245,7 +245,7 @@ const LoginPage: React.FC = () => {
       const result = await api.login(email, password);
 
       if (result.success) {
-        const allowedRoles = ['admin', 'accountant', 'stock_coordinator', 'team_leader', 'site_manager'/*, 'team_member', 'team_assistant'*/];
+        const allowedRoles = ['admin', 'accountant', 'stock_coordinator', 'audit_type_manager', 'team_leader', 'site_manager'/*, 'team_member', 'team_assistant'*/];
         if (!allowedRoles.includes(result.user?.role || '')) {
           setError('Access Restricted: Your role cannot access this portal.');
           await api.logout();
