@@ -70,6 +70,16 @@ interface UserProfile {
 
 const auditChartTypes = ['TATA', 'TVS', 'JBM', 'Honda'];
 const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+const belongsToMonth = (record: any, month: string) => {
+  const rawDate = String(record.quoteDate || record.startingDate || record.createdAt || '');
+  if (rawDate.startsWith(month)) return true;
+  const match = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  return Boolean(match && `${match[3]}-${String(match[2]).padStart(2, '0')}` === month);
+};
 const countAuditTypes = (records: any[]) => auditChartTypes.map((type) => ({
   label: type,
   count: records.filter((record) => {
@@ -269,6 +279,7 @@ const AdminDashboard: React.FC = () => {
   const loadDashboardData = async (): Promise<void> => {
     try {
       setIsDataLoading(true);
+      const month = currentMonthKey();
       const currentUser = await authManager.getCurrentUser();
       const siteManagerMode = currentUser?.role === 'site_manager';
       const [users, teams, racks, masterData, followUps, completions] = await Promise.all([
@@ -277,7 +288,7 @@ const AdminDashboard: React.FC = () => {
         api.getRacks({ limit: 1 }).catch(() => ({ totalCount: 0 })),
         siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata().catch(() => ({ data: [] })),
         api.getAuditFollowUps().catch(() => ({ data: [] })),
-        api.getAuditCompletions('').catch(() => ({ data: [] }))
+        api.getAuditCompletions(month).catch(() => ({ data: [] }))
       ]);
       setStats({
         users: users?.length || 0,
@@ -286,7 +297,7 @@ const AdminDashboard: React.FC = () => {
         masterItems: siteManagerMode ? 0 : (masterData as any)?.data?.length || 0
       });
       setTeamsByAuditType(countAuditTypes(teams || []));
-      setFollowUpRecords((followUps as any)?.data || []);
+      setFollowUpRecords(((followUps as any)?.data || []).filter((record: any) => belongsToMonth(record, month)));
       setCompletionRecords((completions as any)?.data || []);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
@@ -442,13 +453,13 @@ const AdminDashboard: React.FC = () => {
 
         {!isSiteManager && <Box sx={{ mb: 6 }}>
           <Typography variant="h5" fontWeight={800} color="#172B4D" sx={{ mb: 0.5 }}>Audit overview</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Live team counts and audit-detail distribution</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Live team counts and audit details for {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', mb: 3 }}>
             {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label} Teams</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Active and completed</Typography></Paper>)}
           </Box>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Follow-ups" records={followUpRecords} loading={isDataLoading} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Completion" records={completionRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Follow-ups — Current Month" records={followUpRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Completion — Current Month" records={completionRecords} loading={isDataLoading} /></Grid>
           </Grid>
         </Box>}
 
