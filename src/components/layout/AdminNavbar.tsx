@@ -173,6 +173,11 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
   // Effect to set active tab based on current route
   useEffect(() => {
     const currentPath = location.pathname;
+    const isAuditDetailsPage = ['/admin/audit-follow-ups', '/admin/audit-completion', '/admin/audit-files'].includes(currentPath);
+    if (isAuditDetailsPage) {
+      setSelectedTab(-1);
+      return;
+    }
     const activeIndex = visibleNavigationItems.findIndex(item => item.path === currentPath);
     if (activeIndex !== -1) {
       setSelectedTab(activeIndex);
@@ -332,11 +337,12 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
                   sx={{
                     minHeight: 64,
                     px: 2,
-                    color: '#64748B',
+                    color: ['/admin/audit-follow-ups', '/admin/audit-completion', '/admin/audit-files'].includes(location.pathname) ? '#004F98' : '#64748B',
                     fontWeight: 600,
                     fontSize: '13px',
                     textTransform: 'none',
                     whiteSpace: 'nowrap',
+                    borderBottom: ['/admin/audit-follow-ups', '/admin/audit-completion', '/admin/audit-files'].includes(location.pathname) ? '3px solid #004F98' : '3px solid transparent',
                     '&:hover': { color: '#004F98', bgcolor: 'transparent' }
                   }}
                 >
