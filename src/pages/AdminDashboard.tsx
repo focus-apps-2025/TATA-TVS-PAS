@@ -68,6 +68,37 @@ interface UserProfile {
   [key: string]: any;
 }
 
+const auditChartTypes = ['TATA', 'TVS', 'JBM', 'Honda'];
+const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
+const countAuditTypes = (records: any[]) => auditChartTypes.map((type) => ({
+  label: type,
+  count: records.filter((record) => {
+    const auditType = String(record.auditType || record.auditCategory || '').toUpperCase();
+    const teamName = String(record.siteName || record.teamName || record.name || record.description || '').toUpperCase();
+    if (type === 'JBM' || type === 'Honda') return teamName.includes(type.toUpperCase());
+    return auditType.includes(type.toUpperCase());
+  }).length,
+}));
+
+const AuditTypePie: React.FC<{ title: string; records: any[]; loading: boolean }> = ({ title, records, loading }) => {
+  const segments = countAuditTypes(records);
+  const total = segments.reduce((sum, segment) => sum + segment.count, 0);
+  let progress = 0;
+  const background = total ? `conic-gradient(${segments.map((segment, index) => {
+    const start = (progress / total) * 100;
+    progress += segment.count;
+    return `${auditChartColors[index]} ${start}% ${(progress / total) * 100}%`;
+  }).join(', ')})` : '#E2E8F0';
+  return <Paper elevation={0} sx={{ p: 2.5, height: '100%', border: '1px solid #E2E8F0', borderRadius: 3 }}>
+    <Typography fontWeight={800} color="#172B4D">{title}</Typography>
+    <Typography variant="body2" color="text.secondary">Audit-type distribution</Typography>
+    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-around" spacing={2} sx={{ pt: 2 }}>
+      <Box sx={{ width: 156, height: 156, borderRadius: '50%', p: '13px', background, flexShrink: 0 }}><Box sx={{ width: '100%', height: '100%', borderRadius: '50%', bgcolor: 'background.paper', display: 'grid', placeItems: 'center', textAlign: 'center' }}><Box><Typography variant="h5" fontWeight={800}>{loading ? '—' : total}</Typography><Typography variant="caption" color="text.secondary">records</Typography></Box></Box></Box>
+      <Stack spacing={0.85} sx={{ width: { xs: '100%', sm: 150 } }}>{segments.map((segment, index) => <Stack key={segment.label} direction="row" justifyContent="space-between" alignItems="center"><Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: auditChartColors[index] }} /><Typography variant="body2" fontWeight={700}>{segment.label}</Typography></Stack><Typography variant="body2" fontWeight={800}>{loading ? '—' : segment.count}</Typography></Stack>)}</Stack>
+    </Stack>
+  </Paper>;
+};
+
 // --- Styled Components ---
 const HeroSection = styled(Box)(({ theme }) => ({
   background: 'linear-gradient(135deg, #004F98 0%, #002D5B 100%)',
@@ -163,6 +194,9 @@ const AdminDashboard: React.FC = () => {
     masterItems: 0
   });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [teamsByAuditType, setTeamsByAuditType] = useState<{ label: string; count: number }[]>(countAuditTypes([]));
+  const [followUpRecords, setFollowUpRecords] = useState<any[]>([]);
+  const [completionRecords, setCompletionRecords] = useState<any[]>([]);
   const isSiteManager = userProfile?.role === 'site_manager';
 
   const managementTools: ManagementTool[] = [
@@ -237,11 +271,13 @@ const AdminDashboard: React.FC = () => {
       setIsDataLoading(true);
       const currentUser = await authManager.getCurrentUser();
       const siteManagerMode = currentUser?.role === 'site_manager';
-      const [users, teams, racks, masterData] = await Promise.all([
-        siteManagerMode ? Promise.resolve([]) : api.getAllUsers(),
-        api.getTeams(),
-        api.getRacks({ limit: 1 }),
-        siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata()
+      const [users, teams, racks, masterData, followUps, completions] = await Promise.all([
+        siteManagerMode ? Promise.resolve([]) : api.getAllUsers().catch(() => []),
+        api.getTeams().catch(() => []),
+        api.getRacks({ limit: 1 }).catch(() => ({ totalCount: 0 })),
+        siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata().catch(() => ({ data: [] })),
+        api.getAuditFollowUps().catch(() => ({ data: [] })),
+        api.getAuditCompletions('').catch(() => ({ data: [] }))
       ]);
       setStats({
         users: users?.length || 0,
@@ -249,6 +285,9 @@ const AdminDashboard: React.FC = () => {
         totalRacks: racks?.totalCount || 0,
         masterItems: siteManagerMode ? 0 : (masterData as any)?.data?.length || 0
       });
+      setTeamsByAuditType(countAuditTypes(teams || []));
+      setFollowUpRecords((followUps as any)?.data || []);
+      setCompletionRecords((completions as any)?.data || []);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     } finally {
@@ -400,6 +439,18 @@ const AdminDashboard: React.FC = () => {
             </Grid>
           )}
         </Grid>
+
+        {!isSiteManager && <Box sx={{ mb: 6 }}>
+          <Typography variant="h5" fontWeight={800} color="#172B4D" sx={{ mb: 0.5 }}>Audit overview</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Live team counts and audit-detail distribution</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', mb: 3 }}>
+            {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label} Teams</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Active and completed</Typography></Paper>)}
+          </Box>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Follow-ups" records={followUpRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditTypePie title="Audit Completion" records={completionRecords} loading={isDataLoading} /></Grid>
+          </Grid>
+        </Box>}
 
         {/* Management Tools Section */}
         <Box sx={{ mb: { xs: 4, md: 6 } }}>

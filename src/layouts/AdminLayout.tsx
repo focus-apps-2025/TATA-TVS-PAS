@@ -43,7 +43,11 @@ const AdminLayout: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
-          overflow: 'auto'
+          overflow: 'auto',
+          scrollBehavior: 'smooth',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          '&::-webkit-scrollbar': { display: 'none' }
         }}
       >
         <Outlet />

@@ -66,10 +66,6 @@ class AuthManager {
         }
       }
     }
-    const currentUser = this._currentUser;
-    if (currentUser?.role === 'stock_coordinator') {
-      return { ...currentUser, role: 'admin', displayRole: currentUser.role };
-    }
     return this._currentUser;
   }
 

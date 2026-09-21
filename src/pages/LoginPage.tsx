@@ -221,7 +221,7 @@ const LoginPage: React.FC = () => {
       const loggedIn = await authManager.isLoggedIn();
       if (loggedIn) {
         const user = await authManager.getCurrentUser();
-        navigate(user?.role === 'accountant' ? '/admin/accountant' : '/admin');
+        navigate(user?.role === 'accountant' ? '/admin/accountant/dashboard' : user?.role === 'stock_coordinator' ? '/admin/stock-coordinator/dashboard' : user?.role === 'audit_type_manager' ? '/admin/audit-manager/dashboard' : '/admin');
       }
     };
     checkAuth();
@@ -251,7 +251,7 @@ const LoginPage: React.FC = () => {
           await api.logout();
           return;
         }
-        navigate(result.user?.role === 'accountant' ? '/admin/accountant' : '/admin');
+        navigate(result.user?.role === 'accountant' ? '/admin/accountant/dashboard' : result.user?.role === 'stock_coordinator' ? '/admin/stock-coordinator/dashboard' : result.user?.role === 'audit_type_manager' ? '/admin/audit-manager/dashboard' : '/admin');
       } else {
         setError(result.message || 'Invalid email or password. Please try again.');
       }

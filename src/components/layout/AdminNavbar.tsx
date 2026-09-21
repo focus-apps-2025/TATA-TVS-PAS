@@ -40,7 +40,6 @@ import {
   Group as GroupsIcon,
   Description as DescriptionIcon,
   Analytics as AnalyticsIcon,
-  Calculate as CalculateIcon,
   Dashboard as DashboardIcon,
   Refresh as RefreshIcon,
   Notifications as NotificationsIcon,
@@ -141,21 +140,40 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
     { label: "Users", icon: PeopleIcon, path: "/admin/users" },
     { label: "Teams", icon: GroupsIcon, path: "/admin/teams" },
     { label: "Master Data", icon: DescriptionIcon, path: "/admin/master-desc" },
+    { label: "Reports", icon: AnalyticsIcon, path: "/admin/reports" }
+  ];
+  const accountantNavigationItems: NavigationItem[] = [
+    { label: "Dashboard", icon: DashboardIcon, path: "/admin/accountant/dashboard" },
+    { label: "Calculator", icon: AnalyticsIcon, path: "/admin/accountant/calculator" },
+  ];
+  const stockCoordinatorNavigationItems: NavigationItem[] = [
+    { label: "Dashboard", icon: DashboardIcon, path: "/admin/stock-coordinator/dashboard" },
+    { label: "Teams", icon: GroupsIcon, path: "/admin/teams" },
     { label: "Reports", icon: AnalyticsIcon, path: "/admin/reports" },
-    { label: "Accounts", icon: CalculateIcon, path: "/admin/accountant" }
+    { label: "Master Data", icon: DescriptionIcon, path: "/admin/master-desc" },
+  ];
+  const auditTypeManagerNavigationItems: NavigationItem[] = [
+    { label: "Dashboard", icon: DashboardIcon, path: "/admin/audit-manager/dashboard" },
+    { label: "Teams", icon: GroupsIcon, path: "/admin/audit-manager/teams" },
   ];
   const navigationItems = allNavigationItems.filter((item) => {
-    if (userProfile?.role === 'accountant') return item.label === 'Accounts';
     if (userProfile?.role === 'site_manager' && ['Users', 'Master Data', 'Reports'].includes(item.label)) return false;
     if (userProfile?.role === 'team_leader' && ['Users', 'Master Data'].includes(item.label)) return false;
     // if (userProfile?.role === 'team_assistant' && !['Dashboard', 'Teams'].includes(item.label)) return false;
     return true;
   });
+  const visibleNavigationItems = userProfile?.role === 'accountant'
+    ? accountantNavigationItems
+    : userProfile?.role === 'stock_coordinator'
+      ? stockCoordinatorNavigationItems
+      : userProfile?.role === 'audit_type_manager'
+        ? auditTypeManagerNavigationItems
+      : navigationItems;
 
   // Effect to set active tab based on current route
   useEffect(() => {
     const currentPath = location.pathname;
-    const activeIndex = navigationItems.findIndex(item => item.path === currentPath);
+    const activeIndex = visibleNavigationItems.findIndex(item => item.path === currentPath);
     if (activeIndex !== -1) {
       setSelectedTab(activeIndex);
     } else {
@@ -164,7 +182,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
         setSelectedTab(0);
       }
     }
-  }, [location.pathname]);
+  }, [location.pathname, visibleNavigationItems]);
 
   // Effect to load user profile on component mount
   useEffect(() => {
@@ -183,7 +201,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number): void => {
     setSelectedTab(newValue);
-    navigate(navigationItems[newValue].path);
+    navigate(visibleNavigationItems[newValue].path);
     if (isMobile) {
       setDrawerOpen(false);
     }
@@ -290,7 +308,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
                     }
                   }}
                 >
-                  {navigationItems.map((item, idx) => {
+                  {visibleNavigationItems.map((item, idx) => {
                     const IconComp = item.icon;
                     return (
                       <WebsiteTab
@@ -308,7 +326,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
                     );
                   })}
                 </Tabs>
-                {userProfile?.role === 'admin' && <Button
+                {['admin', 'stock_coordinator'].includes(userProfile?.role || '') && <Button
                   onClick={handleAuditDetailsOpen}
                   endIcon={<KeyboardArrowDownIcon />}
                   sx={{
@@ -408,7 +426,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
             </Typography>
           </Box>
           <Divider sx={{ mb: 1, borderColor: '#E5E7EB' }} />
-          {navigationItems.map((item, index) => {
+          {visibleNavigationItems.map((item, index) => {
             const IconComp = item.icon;
             return (
               <ListItem disablePadding key={item.label}>

@@ -334,16 +334,9 @@ const UserManagement: React.FC = () => {
     {
       id: 'stock_coordinator',
       title: 'Stock Coordinator',
-      description: 'Same access and management capabilities as an administrator',
+      description: 'View-only access to teams, reports, master data and audit details',
       color: AppColors.primaryColor,
       icon: PersonIcon 
-    },
-    {
-      id: 'accountant',
-      title: 'Accountant',
-      description: 'Same access and management capabilities as an administrator',
-      color: AppColors.primaryColor,
-      icon: PersonIcon
     },
     { 
       id: 'team_leader', 
@@ -833,7 +826,6 @@ const UserManagement: React.FC = () => {
                 >
                   <MenuItem value="all">All Roles</MenuItem>
                   <MenuItem value="admin">Administrators</MenuItem>
-                  <MenuItem value="accountant">Accountants</MenuItem>
                   <MenuItem value="stock_coordinator">Stock Coordinators</MenuItem>
                   <MenuItem value="team_leader">Team Leaders</MenuItem>
                   <MenuItem value="team_member">Team Members</MenuItem>

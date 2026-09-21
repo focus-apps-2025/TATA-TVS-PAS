@@ -281,7 +281,7 @@ const TeamManagement: React.FC = () => {
 
   // State for authentication and user
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const canCreateTeam = currentUser?.role !== 'site_manager';
+  const canCreateTeam = ['admin', 'stock_coordinator', 'team_leader', 'team_member', 'team_assistant'].includes(currentUser?.role || '');
 
   // Global state
   const [loading, setLoading] = useState<boolean>(true);
@@ -1097,7 +1097,7 @@ const TeamManagement: React.FC = () => {
 
   const canCurrentUserUploadTeamImages = (team: Team | null): boolean => {
     if (!currentUser || !team) return false;
-    if (currentUser.role === 'admin') return true;
+    if (['admin', 'stock_coordinator'].includes(currentUser.role || '')) return true;
 
     // Check if team leader
     const leader = team.teamLeader as User | string | null | undefined;
@@ -1741,7 +1741,7 @@ const TeamManagement: React.FC = () => {
   // Determine if current user can edit/delete
   const canEditDelete = (): boolean => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (['admin', 'stock_coordinator'].includes(currentUser.role || '')) return true;
     if (currentUser.role === 'team_leader') {
       if (selectedTeam && selectedTeam.teamLeader) {
         const teamLeader = selectedTeam.teamLeader as User;
@@ -2311,7 +2311,7 @@ const TeamManagement: React.FC = () => {
                   }}
                 />
               ) : (
-                currentUser?.role === 'admin' && (
+                ['admin', 'stock_coordinator'].includes(currentUser?.role || '') && (
                   <Button
                     variant="contained"
                     color="success"
@@ -2330,7 +2330,7 @@ const TeamManagement: React.FC = () => {
                   </Button>
                 )
               )}
-              {['admin', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
+              {['admin', 'stock_coordinator', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
                 <Button
                   variant="contained"
                   onClick={() => navigate(`/admin/teams/${selectedTeam?._id || selectedTeam?.id}/report`)}
@@ -2481,7 +2481,7 @@ const TeamManagement: React.FC = () => {
                     Export {selectedTeam?.auditType === 'TATA' ? '(Grouped)' : ''}
                   </Button>
                 )}
-                {['admin', 'team_leader'].includes(currentUser?.role || '') && (
+                {['admin', 'stock_coordinator', 'team_leader'].includes(currentUser?.role || '') && (
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -2839,7 +2839,7 @@ const TeamManagement: React.FC = () => {
         >
           <VisibilityIcon fontSize="small" sx={{ mr: 1 }} /> View Racks
         </MenuItem>
-        {currentUser?.role !== 'site_manager' && (
+        {['admin', 'stock_coordinator', 'team_leader', 'team_member', 'team_assistant'].includes(currentUser?.role || '') && (
           <MenuItem
             onClick={() => {
               openEditTeamForm(teamMenuTarget!);
@@ -2850,7 +2850,7 @@ const TeamManagement: React.FC = () => {
             <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit Team
           </MenuItem>
         )}
-        {['admin', 'team_leader'].includes(currentUser?.role || '') && (
+        {['admin', 'stock_coordinator', 'team_leader'].includes(currentUser?.role || '') && (
           <MenuItem
             onClick={() => {
               setDmsUploadTeamId(teamMenuTarget?._id || teamMenuTarget?.id || null);
@@ -2860,7 +2860,7 @@ const TeamManagement: React.FC = () => {
             <DescriptionIcon fontSize="small" sx={{ mr: 1 }} /> Add DMS
           </MenuItem>
         )}
-        {currentUser?.role !== 'site_manager' && (
+        {['admin', 'stock_coordinator', 'team_leader'].includes(currentUser?.role || '') && (
           <MenuItem
             onClick={() => {
               setPostDocumentTeam(teamMenuTarget);
@@ -2872,7 +2872,7 @@ const TeamManagement: React.FC = () => {
         )}
         {/* Report action moved to the selected-team Reports button above. */}
         {/* 
-        {['admin', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
+        {['admin', 'stock_coordinator', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
           <MenuItem
             onClick={() => {
               setAuditUploadTeam(teamMenuTarget);
