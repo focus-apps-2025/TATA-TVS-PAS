@@ -39,15 +39,21 @@ const partNoAliases = [
 const quantityAliases = [
   'Quantity', 'Qty', 'Total Stock', 'Stock', 'Free Qty', 'Free Stock',
   'System Qty', 'System Quantity', 'Available Qty', 'Available Quantity',
-  'Closing Stock', 'On Hand Qty', 'On Hand Quantity', 'Unrestricted Stock'
+  'Closing Stock', 'On Hand Qty', 'On Hand Quantity', 'Unrestricted Stock', 'Unrestricted',
+  'Quantity Unrestricted', 'Qty Unrestricted', 'Unrestricted Quantity'
+];
+const descriptionAliases = [
+  'Description', 'Desc', 'Part Description', 'Material Description', 'Item Description'
 ];
 
 const matchesAlias = (header: string, aliases: string[]) => {
   const normalizedHeader = normalizeHeader(header);
   return aliases.map(normalizeHeader).some((alias) => (
     normalizedHeader === alias
-    // SAP may suffix duplicate headings, for example Part No#3.
-    || (alias !== 'item' && alias.length > 3 && normalizedHeader.startsWith(alias))
+    // SAP may suffix duplicate headings, for example Part No#3. Only a
+    // numeric suffix is accepted so "Material Description" never matches
+    // the separate "Material" (Part No) column.
+    || (alias !== 'item' && alias.length > 3 && normalizedHeader.startsWith(alias) && /^\d+$/.test(normalizedHeader.slice(alias.length)))
   ));
 };
 
@@ -130,7 +136,7 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
             .map((sheetName) => ({ sheet: workbook.Sheets[sheetName], headerRow: findHeaderRow(workbook.Sheets[sheetName]) }))
             .find(({ headerRow }) => headerRow !== -1);
           if (!matchedSheet) {
-            setError('DMS file must contain Part No and Quantity/Total Stock columns.');
+            setError('DMS file must contain Material/Part No and Unrestricted/Quantity columns.');
             setLoading(false);
             return;
           }
@@ -141,7 +147,7 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
             const rawQty = getRowValue(row, quantityAliases);
             const rawNdp = getRowValue(row, ['NEW NDP', 'NDP', 'Unit Value', 'Unit Price', 'Net Dealer Price']);
             const rawMrp = getRowValue(row, ['NEW MRP', 'MRP', 'Total Value', 'Max Retail Price', 'Retail Price']);
-            const description = getRowValue(row, ['Description', 'Desc', 'Part Description', 'Material Description', 'Item Description']) || '';
+            const description = getRowValue(row, descriptionAliases) || '';
             
             return {
               partNo: String(partNo || '').trim(),
@@ -279,7 +285,7 @@ const DMSUploadModal: React.FC<DMSUploadModalProps> = ({ open, onClose, teamId, 
           )}
           
           <Typography variant="caption" color="textSecondary" sx={{ mt: 1, textAlign: 'center' }}>
-            Required columns: Part No, Quantity/Total Stock. Optional: NDP/Unit Value, MRP/Total Value
+            Required columns: Material or Part No, plus Unrestricted/Quantity/Quantity Unrestricted. Optional: Description or Material Description, NDP/Unit Value, MRP/Total Value
           </Typography>
         </Box>
       </DialogContent>
