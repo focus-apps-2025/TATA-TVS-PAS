@@ -82,9 +82,9 @@ function App() {
             <Route path="accountant/calculator" element={<RoleProtectedRoute allowedRoles={['accountant']}><AccountantPage /></RoleProtectedRoute>} />
             <Route path="users" element={<RoleProtectedRoute allowedRoles={['admin']}><UserManagement /></RoleProtectedRoute>} />
             <Route path="teams" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator', 'team_leader', 'site_manager', 'team_member']}><TeamManagement /></RoleProtectedRoute>} />
-            <Route path="teams/:teamId" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager', 'team_member']}><TeamManagement /></RoleProtectedRoute>} />
-            <Route path="teams/:teamId/dms-comparison" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><DMSComparison /></RoleProtectedRoute>} />
-            <Route path="teams/:teamId/report" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><TeamReport /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId" element={<RoleProtectedRoute allowedRoles={['admin', 'audit_type_manager', 'team_leader', 'site_manager', 'team_member']}><TeamManagement /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId/dms-comparison" element={<RoleProtectedRoute allowedRoles={['admin', 'audit_type_manager', 'team_leader', 'site_manager']}><DMSComparison /></RoleProtectedRoute>} />
+            <Route path="teams/:teamId/report" element={<RoleProtectedRoute allowedRoles={['admin', 'audit_type_manager', 'team_leader', 'site_manager']}><TeamReport /></RoleProtectedRoute>} />
             <Route path="teams/:teamId/before-entry" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><AuditEntryPage auditType="before" /></RoleProtectedRoute>} />
             <Route path="teams/:teamId/after-entry" element={<RoleProtectedRoute allowedRoles={['admin', 'team_leader', 'site_manager']}><AuditEntryPage auditType="after" /></RoleProtectedRoute>} />
             <Route path="master-desc" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator']}><MasterDescription /></RoleProtectedRoute>} />

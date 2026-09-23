@@ -2330,7 +2330,7 @@ const TeamManagement: React.FC = () => {
                   </Button>
                 )
               )}
-              {['admin', 'stock_coordinator', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
+              {['admin', 'stock_coordinator', 'audit_type_manager', 'team_leader', 'site_manager'].includes(currentUser?.role || '') && (
                 <Button
                   variant="contained"
                   onClick={() => navigate(`/admin/teams/${selectedTeam?._id || selectedTeam?.id}/report`)}
