@@ -61,7 +61,12 @@ const RoleProtectedRoute = ({ children, allowedRoles }: { children: React.ReactE
   }, []);
 
   if (role === null) return null;
-  return !allowedRoles.includes(role)
+  // Stock Coordinators have the same operational permissions as administrators.
+  // Keep their distinct role so their dedicated dashboard and identity still work.
+  const hasAccess = allowedRoles.includes(role)
+    || (role === 'stock_coordinator' && allowedRoles.includes('admin'));
+
+  return !hasAccess
     ? <Navigate to={role === 'accountant' ? '/admin/accountant/dashboard' : role === 'stock_coordinator' ? '/admin/stock-coordinator/dashboard' : role === 'audit_type_manager' ? '/admin/audit-manager/dashboard' : '/admin/teams'} replace />
     : children;
 };

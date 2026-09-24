@@ -146,12 +146,6 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
     { label: "Dashboard", icon: DashboardIcon, path: "/admin/accountant/dashboard" },
     { label: "Calculator", icon: AnalyticsIcon, path: "/admin/accountant/calculator" },
   ];
-  const stockCoordinatorNavigationItems: NavigationItem[] = [
-    { label: "Dashboard", icon: DashboardIcon, path: "/admin/stock-coordinator/dashboard" },
-    { label: "Teams", icon: GroupsIcon, path: "/admin/teams" },
-    { label: "Reports", icon: AnalyticsIcon, path: "/admin/reports" },
-    { label: "Master Data", icon: DescriptionIcon, path: "/admin/master-desc" },
-  ];
   const auditTypeManagerNavigationItems: NavigationItem[] = [
     { label: "Dashboard", icon: DashboardIcon, path: "/admin/audit-manager/dashboard" },
     { label: "Teams", icon: GroupsIcon, path: "/admin/audit-manager/teams" },
@@ -164,10 +158,8 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
   });
   const visibleNavigationItems = userProfile?.role === 'accountant'
     ? accountantNavigationItems
-    : userProfile?.role === 'stock_coordinator'
-      ? stockCoordinatorNavigationItems
-      : userProfile?.role === 'audit_type_manager'
-        ? auditTypeManagerNavigationItems
+    : userProfile?.role === 'audit_type_manager'
+      ? auditTypeManagerNavigationItems
       : navigationItems;
 
   // Effect to set active tab based on current route
