@@ -924,11 +924,20 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
     deleteAuditFile: (id: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/audit-files/${id}`).then(response => response.data),
 
-    getAuditFolderContents: (parentId?: string): Promise<ApiResponse> =>
-        apiService.get<ApiResponse>('/audit-files/folders', { params: parentId ? { parentId } : {} }).then(response => response.data),
+    getAuditFolderContents: (parentId?: string, page = 1, limit = 12): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files/folders', { params: { ...(parentId ? { parentId } : {}), page, limit } }).then(response => response.data),
+
+    getAllAuditFiles: (page = 1, limit = 20): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files/all', { params: { page, limit } }).then(response => response.data),
 
     createAuditFolder: (name: string, parentFolder?: string): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/audit-files/folders', { name, parentFolder }).then(response => response.data),
+
+    renameAuditFolder: (id: string, name: string): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/audit-files/folders/${id}`, { name }).then(response => response.data),
+
+    deleteAuditFolder: (id: string): Promise<ApiResponse> =>
+        apiService.delete<ApiResponse>(`/audit-files/folders/${id}`).then(response => response.data),
  }
 
 export default api;
