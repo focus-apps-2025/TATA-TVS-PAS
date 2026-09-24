@@ -151,6 +151,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
     { label: "Teams", icon: GroupsIcon, path: "/admin/audit-manager/teams" },
   ];
   const navigationItems = allNavigationItems.filter((item) => {
+    if (userProfile?.role === 'stock_coordinator' && item.label === 'Users') return false;
     if (userProfile?.role === 'site_manager' && ['Users', 'Master Data', 'Reports'].includes(item.label)) return false;
     if (userProfile?.role === 'team_leader' && ['Users', 'Master Data'].includes(item.label)) return false;
     // if (userProfile?.role === 'team_assistant' && !['Dashboard', 'Teams'].includes(item.label)) return false;
