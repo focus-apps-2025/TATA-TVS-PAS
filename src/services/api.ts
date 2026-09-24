@@ -912,7 +912,7 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
     createAuditFinancialYear: (title: string): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/audit-files/financial-years', { title }).then(response => response.data),
 
-    uploadAuditFile: (data: { financialYear: string; month: string; fileName: string; mimeType: string; fileBase64: string }): Promise<ApiResponse> =>
+    uploadAuditFile: (data: { financialYear: string; month: string; folder?: string; fileName: string; mimeType: string; fileBase64: string }): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/audit-files', data).then(response => response.data),
 
     downloadAuditFile: (id: string): Promise<Blob> =>
@@ -923,6 +923,12 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
 
     deleteAuditFile: (id: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/audit-files/${id}`).then(response => response.data),
+
+    getAuditFolderContents: (parentId?: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-files/folders', { params: parentId ? { parentId } : {} }).then(response => response.data),
+
+    createAuditFolder: (name: string, parentFolder?: string): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/audit-files/folders', { name, parentFolder }).then(response => response.data),
  }
 
 export default api;
