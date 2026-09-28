@@ -370,6 +370,7 @@ const TeamManagement: React.FC = () => {
     siteName: '',
     location: '',
     description: '',
+    subcategory: '',
     status: 'active',
     isNewSite: false,
     auditType: 'TVS', // Default to TVS
@@ -784,6 +785,7 @@ const TeamManagement: React.FC = () => {
       siteName: '',
       location: '',
       description: '',
+      subcategory: '',
       isNewSite: false,
       status: 'active',
       auditType: 'TVS',
@@ -803,6 +805,7 @@ const TeamManagement: React.FC = () => {
       siteName: team.siteName || '',
       location: team.location || '',
       description: team.description || '',
+      subcategory: team.subcategory || '',
       isNewSite: team.isNewSite || false,
       status: team.status || 'active',
       auditType: team.auditType || 'TVS',
@@ -825,6 +828,7 @@ const TeamManagement: React.FC = () => {
       siteName: '',
       location: '',
       description: '',
+      subcategory: '',
       isNewSite: false,
       status: 'active',
       auditType: 'TVS',
@@ -911,6 +915,7 @@ const TeamManagement: React.FC = () => {
         siteName: teamFormData.siteName,
         location: teamFormData.location,
         description: teamFormData.description,
+        subcategory: teamFormData.subcategory,
         isNewSite: teamFormData.isNewSite,
         status: teamFormData.status,
         auditType: teamFormData.auditType,
@@ -958,7 +963,8 @@ const TeamManagement: React.FC = () => {
   const handleTeamFormChange = (field: keyof TeamFormData, value: any): void => {
     setTeamFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
+      ...(field === 'auditType' ? { subcategory: '' } : {})
     }));
 
     if (teamFormErrors[field]) {

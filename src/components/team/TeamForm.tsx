@@ -109,6 +109,11 @@ const TeamForm: React.FC<TeamFormProps> = ({
   gettingLocation,
   getInitials
 }) => {
+  const subcategoryOptions: Record<TeamFormData['auditType'], string[]> = {
+    TATA: ['TATA Commercial', 'TATA Accessories'],
+    TVS: ['2W'],
+    '3w-tvs': ['3W']
+  };
   return (
     <Dialog
       open={open}
@@ -356,6 +361,23 @@ const TeamForm: React.FC<TeamFormProps> = ({
                         <MenuItem value="TVS">TVS Mode</MenuItem>
                         <MenuItem value="TATA">TATA Mode</MenuItem>
                         <MenuItem value="3w-tvs">3W TVS Mode</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormControl fullWidth variant="outlined">
+                      <InputLabel>Subcategory</InputLabel>
+                      <Select
+                        value={formData.subcategory}
+                        onChange={(e) => onChange('subcategory', e.target.value)}
+                        label="Subcategory"
+                        sx={{ borderRadius: 3 }}
+                      >
+                        <MenuItem value="">Not specified</MenuItem>
+                        {subcategoryOptions[formData.auditType].map((subcategory) => (
+                          <MenuItem key={subcategory} value={subcategory}>{subcategory}</MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
                   </Grid>

@@ -1,0 +1,42 @@
+import { useEffect, useState } from 'react';
+import { Add, Groups, PersonAdd } from '@mui/icons-material';
+import { Alert, Box, Button, Card, CardContent, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import api from '../services/api';
+
+type Employee = { _id: string; name: string; employeeCode?: string; designation?: string; department?: string; phone?: string; email?: string; joiningDate?: string };
+type Attendance = { _id: string; name: string; email?: string; role: string; attendanceStatus: 'Present' | 'Absent'; teamCount: number };
+const blank = { name: '', employeeCode: '', designation: '', department: '', phone: '', email: '', joiningDate: '', attendanceStatus: 'Present' };
+const today = () => {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+};
+
+export default function EmployeeManagement() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [attendanceDate, setAttendanceDate] = useState(today);
+  const [summary, setSummary] = useState({ present: 0, absent: 0, teamsCreated: 0 });
+  const [tab, setTab] = useState<'employees' | 'attendance'>('employees');
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(blank);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const loadEmployees = async () => { try { const response = await api.getEmployees(); if (!response.success) throw new Error(response.message); setEmployees(response.data as Employee[]); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to load employees.'); } };
+  const loadAttendance = async () => { try { const response = await api.getTeamAttendance(attendanceDate); if (!response.success) throw new Error(response.message); setAttendance(response.data as Attendance[]); setSummary(response.summary || { present: 0, absent: 0, teamsCreated: 0 }); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to calculate attendance.'); } };
+  useEffect(() => { void loadEmployees(); }, []);
+  useEffect(() => { if (tab === 'attendance') void loadAttendance(); }, [tab, attendanceDate]);
+  useEffect(() => {
+    if (!error) return undefined;
+    const timer = window.setTimeout(() => setError(''), 2000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+  useEffect(() => {
+    if (!message) return undefined;
+    const timer = window.setTimeout(() => setMessage(''), 2000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+  const key = 'attendanceStatus' as const;
+  const addEmployee = async () => { try { const response = await api.createEmployee(form); if (!response.success) throw new Error(response.message); setOpen(false); setForm(blank); setMessage('Employee added successfully.'); await loadEmployees(); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to add employee.'); } };
+  return <Container maxWidth="xl" sx={{ py: 3 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2.5 }}><Box><Typography variant="h4" fontWeight={800}>Team Management</Typography><Typography color="text.secondary">Employee records and attendance generated from team creation on the selected date.</Typography></Box><Button variant="contained" startIcon={<PersonAdd />} onClick={() => setOpen(true)}>Add employee</Button></Stack>{error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}{message && <Alert severity="success" onClose={() => setMessage('')} sx={{ mb: 2 }}>{message}</Alert>}<Card variant="outlined"><CardContent><Stack direction="row" spacing={1} sx={{ mb: 2 }}><Button variant={tab === 'employees' ? 'contained' : 'outlined'} startIcon={<Groups />} onClick={() => setTab('employees')}>Employee details</Button><Button variant={tab === 'attendance' ? 'contained' : 'outlined'} onClick={() => setTab('attendance')}>Attendance</Button></Stack>{tab === 'attendance' && <><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2 }}><TextField size="small" type="date" label="Team creation date" value={attendanceDate} InputLabelProps={{ shrink: true }} onChange={(event) => setAttendanceDate(event.target.value)} /><Typography variant="body2" color="text.secondary">Attendance is calculated for this selected date. Assigned staff are Present; other active staff are Absent.</Typography></Stack><Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.5, mb: 2 }}>{[['Present', summary.present, '#15803D'], ['Absent', summary.absent, '#B91C1C'], ['Teams created', summary.teamsCreated, '#0054A6']].map(([label, value, color]) => <Card key={String(label)} variant="outlined"><CardContent sx={{ py: 1.5 }}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={800} sx={{ color }}>{value}</Typography></CardContent></Card>)}</Box></>}<TableContainer><Table><TableHead><TableRow>{tab === 'employees' ? ['Employee', 'Code', 'Designation', 'Department', 'Contact', 'Joined'].map((head) => <TableCell key={head} sx={{ fontWeight: 800, bgcolor: '#EAF3FF' }}>{head}</TableCell>) : ['Employee', 'Role', 'Email', 'Teams on selected date', 'Attendance'].map((head) => <TableCell key={head} sx={{ fontWeight: 800, bgcolor: '#EAF3FF' }}>{head}</TableCell>)}</TableRow></TableHead><TableBody>{(tab === 'employees' ? employees : attendance).map((item: Employee | Attendance) => <TableRow key={item._id} hover>{tab === 'employees' ? <><TableCell><Typography fontWeight={700}>{item.name}</Typography><Typography variant="caption">{item.email || '—'}</Typography></TableCell><TableCell>{(item as Employee).employeeCode || '—'}</TableCell><TableCell>{(item as Employee).designation || '—'}</TableCell><TableCell>{(item as Employee).department || '—'}</TableCell><TableCell>{(item as Employee).phone || '—'}</TableCell><TableCell>{(item as Employee).joiningDate ? new Date((item as Employee).joiningDate!).toLocaleDateString('en-IN') : '—'}</TableCell></> : <><TableCell sx={{ fontWeight: 700 }}>{item.name}</TableCell><TableCell>{(item as Attendance).role.replace('_', ' ')}</TableCell><TableCell>{item.email || '—'}</TableCell><TableCell>{(item as Attendance).teamCount}</TableCell><TableCell><Chip label={(item as Attendance).attendanceStatus} color={(item as Attendance).attendanceStatus === 'Present' ? 'success' : 'error'} size="small" /></TableCell></>}</TableRow>)}{!(tab === 'employees' ? employees : attendance).length && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 7, color: 'text.secondary' }}>{tab === 'attendance' ? 'No team staff found for this date.' : 'No employees added yet.'}</TableCell></TableRow>}</TableBody></Table></TableContainer></CardContent></Card><Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth><DialogTitle>Add employee</DialogTitle><DialogContent dividers><Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, pt: 0.5 }}>{[['name', 'Employee name'], ['employeeCode', 'Employee code'], ['designation', 'Designation'], ['department', 'Department'], ['phone', 'Phone'], ['email', 'Email']].map(([key, label]) => <TextField key={key} required={key === 'name'} label={label} value={form[key as keyof typeof form]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />)}<TextField label="Joining date" type="date" value={form.joiningDate} InputLabelProps={{ shrink: true }} onChange={(event) => setForm({ ...form, joiningDate: event.target.value })} /><TextField select label="Default attendance" value={form.attendanceStatus} onChange={(event) => setForm({ ...form, [key]: event.target.value })}>{['Present', 'Absent', 'Leave'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField></Box></DialogContent><DialogActions><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="contained" startIcon={<Add />} onClick={() => void addEmployee()}>Add employee</Button></DialogActions></Dialog></Container>;
+}

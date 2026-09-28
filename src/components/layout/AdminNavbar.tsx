@@ -139,6 +139,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ handleRefresh }) => {
     { label: "Dashboard", icon: DashboardIcon, path: "/admin" },
     { label: "Users", icon: PeopleIcon, path: "/admin/users" },
     { label: "Teams", icon: GroupsIcon, path: "/admin/teams" },
+    { label: "Team Management", icon: GroupsIcon, path: "/admin/employee-management" },
     { label: "Master Data", icon: DescriptionIcon, path: "/admin/master-desc" },
     { label: "Reports", icon: AnalyticsIcon, path: "/admin/reports" }
   ];

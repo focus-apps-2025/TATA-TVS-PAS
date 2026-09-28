@@ -41,6 +41,7 @@ export interface Team {
     siteName: string;
     location: string;
     description?: string;
+    subcategory?: string;
     isNewSite: boolean;
     status: string;
     auditType?: 'TVS' | 'TATA' | '3w-tvs';
@@ -139,6 +140,7 @@ export interface TeamFormData {
     siteName: string;
     location: string;
     description: string;
+    subcategory: string;
     status: string;
     isNewSite: boolean;
     auditType: 'TVS' | 'TATA' | '3w-tvs';
@@ -711,6 +713,9 @@ const api = {
             return {}; // Return empty object on failure
         }),
 
+    getDailyTeamActivity: (from: string, to: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/racks/daily-activity', { params: { from, to } }).then(response => response.data),
+
     checkPartNoInMaster: (partNo: string, siteName: string): Promise<ApiResponse> =>
         apiService.get<ApiResponse>(`/racks/check-master/${partNo}/${siteName}`).then(response => response.data),
 
@@ -888,8 +893,8 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
     deleteAuditFollowUp: (id: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/audit-follow-ups/${id}`).then(response => response.data),
 
-    getAuditCompletions: (month: string): Promise<ApiResponse> =>
-        apiService.get<ApiResponse>('/audit-completions', { params: { month } }).then(response => response.data),
+    getAuditCompletions: (month?: string): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/audit-completions', { params: month ? { month } : {} }).then(response => response.data),
 
     createAuditCompletion: (data: Record<string, string>): Promise<ApiResponse> =>
         apiService.post<ApiResponse>('/audit-completions', data).then(response => response.data),
@@ -938,6 +943,20 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
 
     deleteAuditFolder: (id: string): Promise<ApiResponse> =>
         apiService.delete<ApiResponse>(`/audit-files/folders/${id}`).then(response => response.data),
+
+    getEmployees: (): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/employees').then(response => response.data),
+
+    createEmployee: (data: Record<string, unknown>): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/employees', data).then(response => response.data),
+
+    updateEmployeeAttendance: (id: string, attendanceStatus: string): Promise<ApiResponse> =>
+        apiService.put<ApiResponse>(`/employees/${id}/attendance`, { attendanceStatus }).then(response => response.data),
+
+    getTeamAttendance: (dateOrRange: string | { from: string; to: string }): Promise<ApiResponse> =>
+        apiService.get<ApiResponse>('/employees/attendance', {
+            params: typeof dateOrRange === 'string' ? { date: dateOrRange } : dateOrRange
+        }).then(response => response.data),
  }
 
 export default api;

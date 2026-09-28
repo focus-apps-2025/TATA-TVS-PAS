@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -14,6 +15,7 @@ import {
   Chip,
   LinearProgress,
   Stack,
+  TextField,
   useMediaQuery,
   SvgIcon,
 } from '@mui/material';
@@ -38,6 +40,8 @@ import {
   Shield as AdminShieldIcon,
   Settings as SettingsIcon,
   Refresh as RefreshIcon,
+  CalendarMonth as CalendarMonthIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 
 import api from '../services/api';
@@ -59,6 +63,10 @@ interface ManagementTool {
 interface DashboardStats {
   users: number;
   teams: number;
+  currentSites: number;
+  totalTeamMembers: number;
+  presentStaff: number;
+  absentStaff: number;
   totalRacks: number;
   masterItems: number;
 }
@@ -68,12 +76,36 @@ interface UserProfile {
   [key: string]: any;
 }
 
-const auditChartTypes = ['TATA', 'TVS', 'JBM', 'Honda'];
+interface DailyActivityMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  scanCount: number;
+}
+
+interface DailyActivityTeam {
+  teamId: string;
+  teamName: string;
+  auditType: string;
+  location: string;
+  totalScans: number;
+  members: DailyActivityMember[];
+}
+
+const auditSubcategoryCards = ['TATA Commercial', 'TATA Accessories', 'TVS 2W', '3W TVS'];
 const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
 const stateChartColors = ['#9DBDEB', '#93DCCD', '#FFD18D', '#CDBEEF', '#FFAAA5', '#A7D7F5'];
 const currentMonthKey = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+const currentIndiaDate = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
 };
 const belongsToMonth = (record: any, month: string) => {
   const rawDate = String(record.quoteDate || record.startingDate || record.createdAt || '');
@@ -81,15 +113,34 @@ const belongsToMonth = (record: any, month: string) => {
   const match = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   return Boolean(match && `${match[3]}-${String(match[2]).padStart(2, '0')}` === month);
 };
-const countAuditTypes = (records: any[]) => auditChartTypes.map((type) => ({
-  label: type,
-  count: records.filter((record) => {
-    const auditType = String(record.auditType || record.auditCategory || '').toUpperCase();
-    const teamName = String(record.siteName || record.teamName || record.name || record.description || '').toUpperCase();
-    if (type === 'JBM' || type === 'Honda') return teamName.includes(type.toUpperCase());
-    return auditType.includes(type.toUpperCase());
-  }).length,
-}));
+const countAuditTypes = (records: any[]) => {
+  const grouped = records.reduce((counts: Record<string, number>, record) => {
+    const auditType = String(record.auditType || '').trim();
+    const subcategory = String(record.subcategory || '').trim();
+    const label = subcategory
+      ? (auditType === '3w-tvs' || (auditType === 'TVS' && subcategory.toUpperCase() === '3W') ? '3W TVS' : auditType === 'TVS' ? `TVS ${subcategory}` : subcategory)
+      : (auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified');
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+
+  const knownCards = auditSubcategoryCards.map((label) => ({ label, count: grouped[label] || 0 }));
+  const extraCards = Object.entries(grouped)
+    .filter(([label]) => !auditSubcategoryCards.includes(label))
+    .map(([label, count]) => ({ label, count }));
+  return [...knownCards, ...extraCards];
+};
+const parseDashboardDate = (value: unknown): string | null => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  return match ? `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}` : null;
+};
+const isWithinDashboardRange = (record: any, from: string, to: string, fields: string[]) => {
+  const date = fields.map((field) => parseDashboardDate(record?.[field])).find(Boolean);
+  return Boolean(date && date >= from && date <= to);
+};
 
 const AuditStatePie: React.FC<{ title: string; records: any[]; loading: boolean }> = ({ title, records, loading }) => {
   const segments = Object.entries(records.reduce((groups: Record<string, number>, record) => {
@@ -199,12 +250,17 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const dashboardCaptureRef = useRef<HTMLDivElement>(null);
 
   // State variables
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
   const [stats, setStats] = useState<DashboardStats>({ 
     users: 0, 
     teams: 0,
+    currentSites: 0,
+    totalTeamMembers: 0,
+    presentStaff: 0,
+    absentStaff: 0,
     totalRacks: 0,
     masterItems: 0
   });
@@ -212,6 +268,12 @@ const AdminDashboard: React.FC = () => {
   const [teamsByAuditType, setTeamsByAuditType] = useState<{ label: string; count: number }[]>(countAuditTypes([]));
   const [followUpRecords, setFollowUpRecords] = useState<any[]>([]);
   const [completionRecords, setCompletionRecords] = useState<any[]>([]);
+  const [dailyActivity, setDailyActivity] = useState<DailyActivityTeam[]>([]);
+  const [fromDate, setFromDate] = useState(currentIndiaDate());
+  const [toDate, setToDate] = useState(currentIndiaDate());
+  const [appliedRange, setAppliedRange] = useState({ from: currentIndiaDate(), to: currentIndiaDate() });
+  const [copyingDashboard, setCopyingDashboard] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState('');
   const isSiteManager = userProfile?.role === 'site_manager';
 
   const managementTools: ManagementTool[] = [
@@ -281,29 +343,35 @@ const AdminDashboard: React.FC = () => {
     };
   }, []);
 
-  const loadDashboardData = async (): Promise<void> => {
+  const loadDashboardData = async (from = appliedRange.from, to = appliedRange.to): Promise<void> => {
     try {
       setIsDataLoading(true);
-      const month = currentMonthKey();
       const currentUser = await authManager.getCurrentUser();
       const siteManagerMode = currentUser?.role === 'site_manager';
-      const [users, teams, racks, masterData, followUps, completions] = await Promise.all([
+      const [users, teams, racks, masterData, followUps, completions, activity, attendance] = await Promise.all([
         siteManagerMode ? Promise.resolve([]) : api.getAllUsers().catch(() => []),
         api.getTeams().catch(() => []),
         api.getRacks({ limit: 1 }).catch(() => ({ totalCount: 0 })),
         siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata().catch(() => ({ data: [] })),
         api.getAuditFollowUps().catch(() => ({ data: [] })),
-        api.getAuditCompletions(month).catch(() => ({ data: [] }))
+        api.getAuditCompletions().catch(() => ({ data: [] })),
+        siteManagerMode ? Promise.resolve({ data: [] }) : api.getDailyTeamActivity(from, to).catch(() => ({ data: [] })),
+        siteManagerMode ? Promise.resolve({ summary: { totalStaff: 0, present: 0, absent: 0 } }) : api.getTeamAttendance({ from, to }).catch(() => ({ summary: { totalStaff: 0, present: 0, absent: 0 } }))
       ]);
       setStats({
         users: users?.length || 0,
         teams: teams?.length || 0,
+        currentSites: (teams || []).filter((team: any) => isWithinDashboardRange(team, currentIndiaDate(), currentIndiaDate(), ['auditStartDate', 'createdAt'])).length,
+        totalTeamMembers: (attendance as any)?.summary?.totalStaff || 0,
+        presentStaff: (attendance as any)?.summary?.present || 0,
+        absentStaff: (attendance as any)?.summary?.absent || 0,
         totalRacks: racks?.totalCount || 0,
         masterItems: siteManagerMode ? 0 : (masterData as any)?.data?.length || 0
       });
-      setTeamsByAuditType(countAuditTypes(teams || []));
-      setFollowUpRecords(((followUps as any)?.data || []).filter((record: any) => belongsToMonth(record, month)));
-      setCompletionRecords((completions as any)?.data || []);
+      setTeamsByAuditType(countAuditTypes((teams || []).filter((team: any) => isWithinDashboardRange(team, from, to, ['auditStartDate', 'createdAt']))));
+      setFollowUpRecords(((followUps as any)?.data || []).filter((record: any) => isWithinDashboardRange(record, from, to, ['quoteDate', 'createdAt'])));
+      setCompletionRecords(((completions as any)?.data || []).filter((record: any) => isWithinDashboardRange(record, from, to, ['startingDate', 'endDate', 'createdAt'])));
+      setDailyActivity((activity as any)?.data || []);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     } finally {
@@ -325,100 +393,70 @@ const AdminDashboard: React.FC = () => {
     loadUserProfile();
   };
 
+  const applyDateRange = (): void => {
+    if (!fromDate || !toDate || fromDate > toDate) return;
+    setAppliedRange({ from: fromDate, to: toDate });
+    loadDashboardData(fromDate, toDate);
+  };
+
+  const resetDateRange = (): void => {
+    const today = currentIndiaDate();
+    setFromDate(today);
+    setToDate(today);
+    setAppliedRange({ from: today, to: today });
+    loadDashboardData(today, today);
+  };
+
+  const copyDashboardImage = async (): Promise<void> => {
+    if (!dashboardCaptureRef.current || copyingDashboard) return;
+    setCopyingDashboard(true);
+    setCopyFeedback('');
+    try {
+      const canvas = await html2canvas(dashboardCaptureRef.current, {
+        backgroundColor: '#F8FAFC',
+        scale: 2,
+        useCORS: true,
+        windowWidth: dashboardCaptureRef.current.scrollWidth,
+        windowHeight: dashboardCaptureRef.current.scrollHeight,
+      });
+      const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+        throw new Error('Image copy is not supported in this browser.');
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      setCopyFeedback('Dashboard image copied');
+    } catch (error) {
+      console.error('Unable to copy dashboard image:', error);
+      setCopyFeedback('Unable to copy image');
+    } finally {
+      setCopyingDashboard(false);
+    }
+  };
+
   const handleNavigation = (path: string): void => {
     navigate(path);
   };
 
   return (
-    <Box sx={{ flexGrow: 1, bgcolor: '#F8FAFC' }}>
-      {/* Hero Section */}
-      <HeroSection>
-        {/* Decorative Floating Icons */}
-        <FloatingIcon sx={{ top: '15%', left: '10%' }}>
-          <ReportIcon sx={{ fontSize: 80 }} />
-        </FloatingIcon>
-        <FloatingIcon sx={{ bottom: '20%', left: '25%', animationDelay: '1s' }}>
-          <GroupsIcon sx={{ fontSize: 60 }} />
-        </FloatingIcon>
-        <FloatingIcon sx={{ top: '25%', right: '15%', animationDelay: '2s' }}>
-          <MasterDataIcon sx={{ fontSize: 70 }} />
-        </FloatingIcon>
-        <FloatingIcon sx={{ bottom: '15%', right: '5%', animationDelay: '3s' }}>
-          <AdminShieldIcon sx={{ fontSize: 90 }} />
-        </FloatingIcon>
-
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Grid container alignItems="center" spacing={4}>
-            <Grid size={{ xs: 12, md: 16 }}>
-              <Typography
-                variant="h2"
-                sx={{
-                  fontWeight: 900,
-                  mb: 2,
-                  fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' },
-                  lineHeight: 1.1,
-                  textShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                }}
-              >
-                Welcome back,<br />
-                <Box component="span" sx={{ color: '#10B981' }}>{userProfile?.name?.split(' ')[0] || 'Admin'}</Box>
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{
-                  mb: 4,
-                  opacity: 0.9,
-                  fontWeight: 400,
-                  maxWidth: 600,
-                  fontSize: { xs: '1rem', md: '1.25rem' },
-                  lineHeight: 1.6
-                }}
-              >
-                Manage your auditing ecosystem with precision. Track performance, coordinate teams, and maintain master data integrity.
-              </Typography>
-              <Stack direction="row" spacing={2} flexWrap="wrap">
-                <Chip
-                  icon={<Schedule sx={{ fontSize: 18, color: 'white !important' }} />}
-                  label={`Today: ${new Date().toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric'
-                  })}`}
-                  sx={{
-                    bgcolor: 'rgba(255, 255, 255, 0.15)',
-                    color: 'white',
-                    fontWeight: 700,
-                    px: 1,
-                    height: 36,
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    fontSize: '0.9rem'
-                  }}
-                />
-                <Button 
-                  variant="contained" 
-                  onClick={handleRefresh}
-                  startIcon={<RefreshIcon />}
-                  sx={{ 
-                    bgcolor: 'white', 
-                    color: '#004F98',
-                    fontWeight: 700,
-                    borderRadius: '12px',
-                    px: 3,
-                    height: 36,
-                    '&:hover': { bgcolor: '#F1F5F9' }
-                  }}
-                >
-                  Sync Data
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
-        </Container>
-      </HeroSection>
-
+    <Box ref={dashboardCaptureRef} sx={{ flexGrow: 1, bgcolor: '#F8FAFC' }}>
       {/* Main Content */}
-      <Container maxWidth="lg" sx={{ mt: -6, pb: 8, position: 'relative', zIndex: 2 }}>
+      <Container maxWidth="lg" sx={{ py: 3, pb: 8 }}>
+        <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, mb: 3, border: '1px solid #DCE6F3', borderRadius: 3, bgcolor: 'rgba(255,255,255,0.98)' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: { md: 1 } }}>
+              <Avatar sx={{ width: 36, height: 36, bgcolor: '#E7F0FC', color: '#0059A8' }}><CalendarMonthIcon fontSize="small" /></Avatar>
+              <Box><Typography fontWeight={800} color="#172B4D">Dashboard period</Typography><Typography variant="caption" color="text.secondary">Filter audit analytics and scan activity</Typography></Box>
+            </Stack>
+            <TextField label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: { md: 165 } }} />
+            <TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} sx={{ minWidth: { md: 165 } }} />
+            <Button variant="contained" onClick={applyDateRange} disabled={!fromDate || !toDate || fromDate > toDate} sx={{ minWidth: 100, fontWeight: 800 }}>Apply</Button>
+            <Button variant="text" onClick={resetDateRange} sx={{ minWidth: 86, fontWeight: 700 }}>Today</Button>
+            <Button data-html2canvas-ignore="true" variant="outlined" onClick={copyDashboardImage} disabled={copyingDashboard} startIcon={<ContentCopyIcon />} sx={{ minWidth: 142, fontWeight: 700 }}>
+              {copyingDashboard ? 'Copying…' : 'Copy image'}
+            </Button>
+            {copyFeedback && <Typography data-html2canvas-ignore="true" variant="caption" color={copyFeedback.includes('Unable') ? 'error.main' : 'success.main'} fontWeight={700}>{copyFeedback}</Typography>}
+          </Stack>
+        </Paper>
         
         {/* Statistics Section */}
         <Grid container spacing={3} sx={{ mb: 6 }}>
@@ -442,6 +480,42 @@ const AdminDashboard: React.FC = () => {
               trend="+3"
             />
           </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatsCard
+              title="Current Sites"
+              value={stats.currentSites}
+              icon={Business}
+              color="#7C3AED"
+              trend="Created today"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatsCard
+              title="Total Team Members"
+              value={stats.totalTeamMembers}
+              icon={GroupsIcon}
+              color="#2563EB"
+              trend="Active staff"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatsCard
+              title="Present Staff"
+              value={stats.presentStaff}
+              icon={CheckCircle}
+              color="#15803D"
+              trend="Selected period"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <StatsCard
+              title="Absent Staff"
+              value={stats.absentStaff}
+              icon={PeopleIcon}
+              color="#DC2626"
+              trend="Selected period"
+            />
+          </Grid>
          
           {!isSiteManager && (
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -456,20 +530,73 @@ const AdminDashboard: React.FC = () => {
           )}
         </Grid>
 
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         {!isSiteManager && <Box sx={{ mb: 6 }}>
           <Typography variant="h5" fontWeight={800} color="#172B4D" sx={{ mb: 0.5 }}>Audit overview</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Live team counts and audit details for {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', mb: 3 }}>
-            {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label} Teams</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Active and completed</Typography></Paper>)}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Subcategory-based team counts and audit details from {new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN')} to {new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN')}</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', mb: 3 }}>
+            {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index % auditChartColors.length]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label}</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Teams in period</Typography></Paper>)}
           </Box>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Follow-ups — Current Month" records={followUpRecords} loading={isDataLoading} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Completion — Current Month" records={completionRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Follow-ups" records={followUpRecords} loading={isDataLoading} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Completion" records={completionRecords} loading={isDataLoading} /></Grid>
           </Grid>
         </Box>}
 
-        {/* Management Tools Section */}
-        <Box sx={{ mb: { xs: 4, md: 6 } }}>
+        {!isSiteManager && <Box sx={{ mb: 6, order: -1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2.5 }}>
+            <Box>
+              <Typography variant="h5" fontWeight={800} color="#172B4D">Today’s user activity</Typography>
+              <Typography variant="body2" color="text.secondary">Scans recorded in the selected period, grouped by team and assigned member.</Typography>
+            </Box>
+            <Chip icon={<Schedule />} label={`${new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} – ${new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`} variant="outlined" sx={{ fontWeight: 700 }} />
+          </Stack>
+
+          {isDataLoading ? <LinearProgress sx={{ borderRadius: 2 }} /> : dailyActivity.length === 0 ? (
+            <Paper elevation={0} sx={{ p: 3, textAlign: 'center', border: '1px dashed #B8C7DA', borderRadius: 3, bgcolor: '#FBFDFF' }}>
+              <Typography fontWeight={700} color="#334155">No scans recorded in this period</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Team activity will appear here when members scan racks during the selected dates.</Typography>
+            </Paper>
+          ) : (
+            <Grid container spacing={2.5}>
+              {dailyActivity.map((team) => (
+                <Grid key={team.teamId} size={{ xs: 12, md: 6 }}>
+                  <Paper elevation={0} sx={{ height: '100%', overflow: 'hidden', border: '1px solid #DCE6F3', borderRadius: 3, bgcolor: '#FFF' }}>
+                    <Box sx={{ px: 2.5, py: 1.75, bgcolor: '#F3F8FE', borderBottom: '1px solid #DCE6F3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography fontWeight={800} color="#172B4D" noWrap>{team.teamName}</Typography>
+                        <Typography variant="caption" color="text.secondary">{team.auditType} · {team.location || 'Location not set'}</Typography>
+                      </Box>
+                      <Chip label={`${team.totalScans} scans`} color="primary" size="small" sx={{ fontWeight: 800, flexShrink: 0 }} />
+                    </Box>
+                    <Stack divider={<Divider flexItem />}>
+                      {team.members.map((member) => (
+                        <Box key={member.id} sx={{ px: 2.5, py: 1.35, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                          <Avatar sx={{ width: 34, height: 34, fontSize: 14, fontWeight: 800, bgcolor: member.scanCount ? '#DDF6E9' : '#EEF2F7', color: member.scanCount ? '#087C43' : '#64748B' }}>
+                            {member.name.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography variant="body2" fontWeight={750} noWrap>{member.name}</Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>{member.role}</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                            <Typography fontWeight={850} color={member.scanCount ? '#087C43' : '#64748B'}>{member.scanCount}</Typography>
+                            <Typography variant="caption" color="text.secondary">scans</Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </Box>}
+
+        </Box>
+
+        {/* Management Tools Section — temporarily hidden */}
+        {false && <Box sx={{ mb: { xs: 4, md: 6 } }}>
           <Stack 
             direction="row" 
             alignItems="center" 
@@ -525,7 +652,7 @@ const AdminDashboard: React.FC = () => {
               </Grid>
             ))}
           </Grid>
-        </Box>
+        </Box>}
       </Container>
 
       {/* Professional Footer */}

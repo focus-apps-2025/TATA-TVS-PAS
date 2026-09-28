@@ -23,6 +23,7 @@ import AccountantPage from "./pages/AccountantPage";
 import AccountantDashboard from "./pages/AccountantDashboard";
 import StockCoordinatorDashboard from "./pages/StockCoordinatorDashboard";
 import AuditTypeDashboard from "./pages/AuditTypeDashboard";
+import EmployeeManagement from "./pages/EmployeeManagement";
 import authManager from "./services/authSession";
 
 // Create a custom theme
@@ -100,6 +101,7 @@ function App() {
             <Route path="audit-follow-ups" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator']}><AuditFollowUps /></RoleProtectedRoute>} />
             <Route path="audit-completion" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator']}><AuditCompletion /></RoleProtectedRoute>} />
             <Route path="audit-files" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator']}><AuditFileUploads /></RoleProtectedRoute>} />
+            <Route path="employee-management" element={<RoleProtectedRoute allowedRoles={['admin', 'stock_coordinator']}><EmployeeManagement /></RoleProtectedRoute>} />
           </Route>
           <Route path="/" element={<Navigate to="/admin" />} />
           <Route path="*" element={<Navigate to="/admin" />} />
