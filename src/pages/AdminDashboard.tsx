@@ -93,7 +93,6 @@ interface DailyActivityTeam {
   members: DailyActivityMember[];
 }
 
-const auditSubcategoryCards = ['TATA Commercial', 'TATA Accessories', 'TVS 2W', '3W TVS'];
 const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
 const stateChartColors = ['#9DBDEB', '#93DCCD', '#FFD18D', '#CDBEEF', '#FFAAA5', '#A7D7F5'];
 const currentMonthKey = () => {
@@ -117,18 +116,16 @@ const countAuditTypes = (records: any[]) => {
   const grouped = records.reduce((counts: Record<string, number>, record) => {
     const auditType = String(record.auditType || '').trim();
     const subcategory = String(record.subcategory || '').trim();
-    const label = subcategory
-      ? (auditType === '3w-tvs' || (auditType === 'TVS' && subcategory.toUpperCase() === '3W') ? '3W TVS' : auditType === 'TVS' ? `TVS ${subcategory}` : subcategory)
-      : (auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified');
+    // A team can use any business subcategory, such as JBM or HONDA.
+    // When it is blank, keep the main audit type as the card label.
+    const label = subcategory || (auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified');
     counts[label] = (counts[label] || 0) + 1;
     return counts;
   }, {});
 
-  const knownCards = auditSubcategoryCards.map((label) => ({ label, count: grouped[label] || 0 }));
-  const extraCards = Object.entries(grouped)
-    .filter(([label]) => !auditSubcategoryCards.includes(label))
-    .map(([label, count]) => ({ label, count }));
-  return [...knownCards, ...extraCards];
+  return Object.entries(grouped)
+    .map(([label, count]) => ({ label, count }))
+    .sort((first, second) => first.label.localeCompare(second.label));
 };
 const parseDashboardDate = (value: unknown): string | null => {
   const raw = String(value || '').trim();
@@ -533,7 +530,7 @@ const AdminDashboard: React.FC = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         {!isSiteManager && <Box sx={{ mb: 6 }}>
           <Typography variant="h5" fontWeight={800} color="#172B4D" sx={{ mb: 0.5 }}>Audit overview</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Subcategory-based team counts and audit details from {new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN')} to {new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN')}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Team counts by subcategory and audit details from {new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN')} to {new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN')}</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', mb: 3 }}>
             {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index % auditChartColors.length]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label}</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Teams in period</Typography></Paper>)}
           </Box>

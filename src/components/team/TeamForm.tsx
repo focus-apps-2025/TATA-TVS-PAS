@@ -109,11 +109,6 @@ const TeamForm: React.FC<TeamFormProps> = ({
   gettingLocation,
   getInitials
 }) => {
-  const subcategoryOptions: Record<TeamFormData['auditType'], string[]> = {
-    TATA: ['TATA Commercial', 'TATA Accessories'],
-    TVS: ['2W'],
-    '3w-tvs': ['3W']
-  };
   return (
     <Dialog
       open={open}
@@ -366,20 +361,21 @@ const TeamForm: React.FC<TeamFormProps> = ({
                   </Grid>
 
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>Subcategory</InputLabel>
-                      <Select
-                        value={formData.subcategory}
-                        onChange={(e) => onChange('subcategory', e.target.value)}
-                        label="Subcategory"
-                        sx={{ borderRadius: 3 }}
-                      >
-                        <MenuItem value="">Not specified</MenuItem>
-                        {subcategoryOptions[formData.auditType].map((subcategory) => (
-                          <MenuItem key={subcategory} value={subcategory}>{subcategory}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <TextField
+                      fullWidth
+                      label="Subcategory"
+                      placeholder="Enter subcategory"
+                      value={formData.subcategory}
+                      onChange={(e) => onChange('subcategory', e.target.value)}
+                      variant="outlined"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 3,
+                          '&:hover fieldset': { borderColor: primaryColor },
+                          '&.Mui-focused fieldset': { borderColor: primaryColor }
+                        }
+                      }}
+                    />
                   </Grid>
                 </Grid>
               </CardContent>
