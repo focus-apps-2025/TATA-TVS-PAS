@@ -1,104 +1,37 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
-  Avatar,
-  Button,
-  Divider,
-  Chip,
-  LinearProgress,
-  Stack,
-  TextField,
-  useMediaQuery,
-  SvgIcon,
-} from '@mui/material';
-
-type SvgIconComponent = typeof SvgIcon;
-import { useTheme, styled } from '@mui/material/styles';
-import {
-  People as PeopleIcon,
-  Group as GroupsIcon,
-  Description as DescriptionIcon,
-  ArrowForward as ArrowForwardIcon,
-  CheckCircle,
-  Business,
-  Phone,
-  Email,
-  LocationOn,
-  Schedule,
-  Analytics as AnalyticsIcon,
-  FlashOn as QuickActionIcon,
-  Dns as MasterDataIcon,
-  Assessment as ReportIcon,
-  Shield as AdminShieldIcon,
-  Settings as SettingsIcon,
-  Refresh as RefreshIcon,
-  CalendarMonth as CalendarMonthIcon,
-  ContentCopy as ContentCopyIcon,
-} from '@mui/icons-material';
-
+import { Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import PersonIcon from '@mui/icons-material/Person';
 import api from '../services/api';
+import type { Team } from '../services/api';
 import authManager from '../services/authSession';
-import ProfessionalCard from '../components/common/ProfessionalCard';
-import StatsCard from '../components/common/StatsCard';
-
-interface ManagementTool {
-  title: string;
-  description: string;
-  icon: SvgIconComponent;
-  color: string;
-  bgColor: string;
-  path: string;
-  status?: string;
-}
-
-// Type definitions
-interface DashboardStats {
-  users: number;
-  teams: number;
-  currentSites: number;
-  totalTeamMembers: number;
-  presentStaff: number;
-  absentStaff: number;
-  totalRacks: number;
-  masterItems: number;
-}
-
-interface UserProfile {
-  name?: string;
-  [key: string]: any;
-}
-
-interface DailyActivityMember {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  scanCount: number;
-}
+import { RankedChart, AttendanceChart, AuditStateComparison, ScanContributionChart } from '../components/common/DashboardCharts';
+import { ChartHeading, ChartState } from '../components/common/DashboardPrimitives';
+import { dashboardTokens as t } from '../components/common/dashboardTheme';
 
 interface DailyActivityTeam {
-  teamId: string;
-  teamName: string;
-  auditType: string;
-  location: string;
-  totalScans: number;
-  members: DailyActivityMember[];
+  teamId: string; teamName: string; auditType: string; location: string; totalScans: number;
+  members: { id: string; name: string; email: string; role: string; scanCount: number }[];
 }
-
-const auditChartColors = ['#1665B5', '#16A36A', '#F59E0B', '#EA5A5A'];
-const stateChartColors = ['#9DBDEB', '#93DCCD', '#FFD18D', '#CDBEEF', '#FFAAA5', '#A7D7F5'];
-const currentMonthKey = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+type AuditRecord = {
+  state?: string; quoteDate?: string; startingDate?: string; endDate?: string;
+  createdAt?: string; month?: string; [field: string]: unknown;
 };
+type AttendanceSummary = {
+  totalStaff: number;
+  present: number;
+  absent: number;
+  compoff?: number;
+  paidLeave?: number;
+  travel?: number;
+  notSet?: number;
+};
+type AttendanceResponse = { summary?: AttendanceSummary };
+type DataResponse<T> = { data?: T };
+type Range = { from: string; to: string };
+type Errors = Partial<Record<'activity' | 'attendance' | 'portfolio' | 'followups' | 'completions' | 'workspace', string>>;
 const currentIndiaDate = () => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -106,19 +39,14 @@ const currentIndiaDate = () => {
   const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 };
-const belongsToMonth = (record: any, month: string) => {
-  const rawDate = String(record.quoteDate || record.startingDate || record.createdAt || '');
-  if (rawDate.startsWith(month)) return true;
-  const match = rawDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  return Boolean(match && `${match[3]}-${String(match[2]).padStart(2, '0')}` === month);
-};
-const countAuditTypes = (records: any[]) => {
+const countAuditTypes = (records: Team[]) => {
   const grouped = records.reduce((counts: Record<string, number>, record) => {
     const auditType = String(record.auditType || '').trim();
     const subcategory = String(record.subcategory || '').trim();
-    // A team can use any business subcategory, such as JBM or HONDA.
-    // When it is blank, keep the main audit type as the card label.
-    const label = subcategory || (auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified');
+    // Keep the main audit type visible alongside any free-text category,
+    // for example "TATA · JBM" or "TVS · HONDA".
+    const auditLabel = auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified';
+    const label = subcategory ? `${auditLabel} · ${subcategory}` : auditLabel;
     counts[label] = (counts[label] || 0) + 1;
     return counts;
   }, {});
@@ -134,620 +62,515 @@ const parseDashboardDate = (value: unknown): string | null => {
   const match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   return match ? `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}` : null;
 };
-const isWithinDashboardRange = (record: any, from: string, to: string, fields: string[]) => {
+const isWithinDashboardRange = (record: Record<string, unknown>, from: string, to: string, fields: string[]) => {
   const date = fields.map((field) => parseDashboardDate(record?.[field])).find(Boolean);
   return Boolean(date && date >= from && date <= to);
 };
-
-const AuditStatePie: React.FC<{ title: string; records: any[]; loading: boolean }> = ({ title, records, loading }) => {
-  const segments = Object.entries(records.reduce((groups: Record<string, number>, record) => {
-    const state = String(record.state || 'Not specified').trim() || 'Not specified';
-    groups[state] = (groups[state] || 0) + 1;
-    return groups;
-  }, {})).map(([label, count]) => ({ label, count }));
-  const total = segments.reduce((sum, segment) => sum + segment.count, 0);
-  let progress = 0;
-  const background = total ? `conic-gradient(${segments.map((segment, index) => {
-    const start = (progress / total) * 100;
-    progress += segment.count;
-    return `${stateChartColors[index % stateChartColors.length]} ${start}% ${(progress / total) * 100}%`;
-  }).join(', ')})` : '#E2E8F0';
-  return <Paper elevation={0} sx={{ p: 2.5, height: '100%', border: '1px solid #E2E8F0', borderRadius: 3 }}>
-    <Typography fontWeight={800} color="#172B4D">{title}</Typography>
-    <Typography variant="body2" color="text.secondary">State-wise distribution</Typography>
-    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-around" spacing={2} sx={{ pt: 2 }}>
-      <Box sx={{ width: 156, height: 156, borderRadius: '50%', p: '13px', background, flexShrink: 0 }}><Box sx={{ width: '100%', height: '100%', borderRadius: '50%', bgcolor: 'background.paper', display: 'grid', placeItems: 'center', textAlign: 'center' }}><Box><Typography variant="h5" fontWeight={800}>{loading ? '—' : total}</Typography><Typography variant="caption" color="text.secondary">records</Typography></Box></Box></Box>
-      <Stack spacing={0.85} sx={{ width: { xs: '100%', sm: 170 } }}>{segments.map((segment, index) => <Stack key={segment.label} direction="row" justifyContent="space-between" alignItems="center"><Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: stateChartColors[index % stateChartColors.length] }} /><Typography variant="body2" fontWeight={700}>{segment.label}</Typography></Stack><Typography variant="body2" fontWeight={800}>{loading ? '—' : `${segment.count} · ${total ? Math.round((segment.count / total) * 100) : 0}%`}</Typography></Stack>)}</Stack>
-    </Stack>
-  </Paper>;
+const isCompletionInRange = (record: AuditRecord, from: string, to: string) => {
+  // Completions are saved in a month bucket; audit start/end dates may be
+  // outside that reporting month, so the bucket takes precedence.
+  if (typeof record.month === 'string' && /^\d{4}-\d{2}$/.test(record.month)) {
+    const month = record.month;
+    return month >= from.slice(0, 7) && month <= to.slice(0, 7);
+  }
+  return isWithinDashboardRange(record, from, to, ['endDate', 'startingDate', 'createdAt']);
 };
 
-// --- Styled Components ---
-const HeroSection = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #004F98 0%, #002D5B 100%)',
-  minHeight: '320px',
-  padding: theme.spacing(12, 0),
-  color: 'white',
-  position: 'relative',
-  overflow: 'hidden',
-  display: 'flex',
-  alignItems: 'center',
-  [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(8, 0),
-    minHeight: '260px',
-  },
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: '-50%',
-    left: '-10%',
-    width: '120%',
-    height: '200%',
-    background: 'radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 40%)',
-    animation: 'pulse 15s infinite alternate',
-    pointerEvents: 'none',
-  },
-  '@keyframes pulse': {
-    '0%': { transform: 'scale(1) rotate(0deg)' },
-    '100%': { transform: 'scale(1.1) rotate(2deg)' }
-  }
-}));
 
-const FloatingIcon = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  opacity: 0.1,
-  color: 'white',
-  zIndex: 0,
-  animation: 'float 6s infinite ease-in-out',
-  '@keyframes float': {
-    '0%, 100%': { transform: 'translateY(0)' },
-    '50%': { transform: 'translateY(-20px)' }
-  }
-}));
+const shiftDay = (date: string, days: number) => {
+  const value = new Date(date + 'T00:00:00Z');
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+};
+const previousRange = ({ from, to }: Range): Range => {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+  return { from: shiftDay(from, -days), to: shiftDay(from, -1) };
+};
 
-const SectionHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  marginBottom: theme.spacing(4),
-  '& .line': {
-    flexGrow: 1,
-    height: '2px',
-    background: 'linear-gradient(to right, #E2E8F0, transparent)',
-    marginRight: theme.spacing(2)
-  },
-  '& .line-right': {
-    flexGrow: 1,
-    height: '2px',
-    background: 'linear-gradient(to left, #E2E8F0, transparent)',
-    marginLeft: theme.spacing(2)
-  }
-}));
+const formatDate = (date: string) => new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const availability = (summary: { present: number; absent: number; travel?: number; totalStaff?: number }) => {
+  const total = summary.totalStaff !== undefined && summary.totalStaff > 0
+    ? summary.totalStaff
+    : summary.present + summary.absent + (summary.travel || 0);
+  return total ? ((summary.present + (summary.travel || 0)) / total) * 100 : 0;
+};
 
-const ActionCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2.5),
-  borderRadius: '16px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  cursor: 'pointer',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  border: '1px solid #F1F5F9',
-  '&:hover': {
-    transform: 'translateX(8px)',
-    boxShadow: '0 10px 25px rgba(0, 79, 152, 0.08)',
-    borderColor: '#004F98',
-    '& .action-icon': {
-      backgroundColor: '#004F98',
-      color: 'white',
-    }
-  }
-}));
-
-const AdminDashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const dashboardCaptureRef = useRef<HTMLDivElement>(null);
-
-  // State variables
-  const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
-  const [stats, setStats] = useState<DashboardStats>({ 
-    users: 0, 
+export default function AdminDashboard() {
+  const summaryCaptureRef = useRef<HTMLDivElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const requestId = useRef(0);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [stats, setStats] = useState({
+    users: 0,
     teams: 0,
     currentSites: 0,
     totalTeamMembers: 0,
     presentStaff: 0,
     absentStaff: 0,
+    compoffStaff: 0,
+    paidLeaveStaff: 0,
+    travelStaff: 0,
+    notSetStaff: 0,
     totalRacks: 0,
-    masterItems: 0
+    masterItems: 0,
   });
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [teamsByAuditType, setTeamsByAuditType] = useState<{ label: string; count: number }[]>(countAuditTypes([]));
-  const [followUpRecords, setFollowUpRecords] = useState<any[]>([]);
-  const [completionRecords, setCompletionRecords] = useState<any[]>([]);
+  const [teamsByAuditType, setTeamsByAuditType] = useState<{ label: string; count: number }[]>([]);
+  const [followUpRecords, setFollowUpRecords] = useState<AuditRecord[]>([]);
+  const [completionRecords, setCompletionRecords] = useState<AuditRecord[]>([]);
   const [dailyActivity, setDailyActivity] = useState<DailyActivityTeam[]>([]);
   const [fromDate, setFromDate] = useState(currentIndiaDate());
   const [toDate, setToDate] = useState(currentIndiaDate());
-  const [appliedRange, setAppliedRange] = useState({ from: currentIndiaDate(), to: currentIndiaDate() });
+  const [appliedRange, setAppliedRange] = useState<Range>({ from: currentIndiaDate(), to: currentIndiaDate() });
+  const rangeRef = useRef(appliedRange);
+  const [preset, setPreset] = useState('Today');
+  const [customOpen, setCustomOpen] = useState(false);
+  const [errors, setErrors] = useState<Errors>({});
+  const [previous, setPrevious] = useState<(number | undefined)[]>([]);
   const [copyingDashboard, setCopyingDashboard] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState('');
-  const isSiteManager = userProfile?.role === 'site_manager';
+  const [teamSearch, setTeamSearch] = useState('');
+  const [onlyActiveTeams, setOnlyActiveTeams] = useState(false);
 
-  const managementTools: ManagementTool[] = [
-    {
-      title: 'User Management',
-      description: 'Manage users, roles and permissions',
-      icon: PeopleIcon,
-      color: '#004F98',
-      bgColor: 'rgba(0, 79, 152, 0.08)',
-      path: '/admin/users',
-      status: 'Active'
-    },
-    {
-      title: 'Team Management',
-      description: 'Organize auditing teams and assignments',
-      icon: GroupsIcon,
-      color: '#10B981',
-      bgColor: 'rgba(16, 185, 129, 0.08)',
-      path: '/admin/teams',
-      status: 'Updated'
-    },
-    {
-      title: 'Master Descriptions',
-      description: 'Centralized repository for part details',
-      icon: DescriptionIcon,
-      color: '#F59E0B',
-      bgColor: 'rgba(245, 158, 11, 0.08)',
-      path: '/admin/master-desc',
-      status: 'Configured'
-    },
-    {
-      title: 'Reports & Analytics',
-      description: 'Comprehensive auditing performance reports',
-      icon: AnalyticsIcon,
-      color: '#8B5CF6',
-      bgColor: 'rgba(139, 92, 246, 0.08)',
-      path: '/admin/reports',
-      status: 'Ready'
-    }
-  ].filter((tool) => {
-    if (isSiteManager) return tool.title === 'Team Management';
-    if (userProfile?.role === 'team_leader') return tool.title !== 'User Management' && tool.title !== 'Master Descriptions';
-    return true;
+  const visibleTeams = dailyActivity.filter((team) => {
+    if (onlyActiveTeams && team.totalScans === 0) return false;
+    if (!teamSearch.trim()) return true;
+    const q = teamSearch.toLowerCase();
+    return (
+      team.teamName.toLowerCase().includes(q) ||
+      (team.location && team.location.toLowerCase().includes(q)) ||
+      team.auditType.toLowerCase().includes(q) ||
+      team.members.some((m) => m.name.toLowerCase().includes(q))
+    );
   });
 
-  const quickActions = [
-    { title: 'Create New Team', icon: GroupsIcon, path: '/admin/teams?action=new', color: '#3B82F6' },
-    { title: 'Upload Master Data', icon: DescriptionIcon, path: '/admin/master-desc', color: '#10B981' },
-    { title: 'Generate Report', icon: AnalyticsIcon, path: '/admin/reports', color: '#F59E0B' },
-    { title: 'Audit Logs', icon: AdminShieldIcon, path: '/admin', color: '#6366F1' },
-  ].filter(() => {
-    if (isSiteManager) return false;
-    if (userProfile?.role === 'team_leader') return false;
-    return true;
-  });
-
-  useEffect(() => {
-    loadDashboardData();
-    loadUserProfile();
-    
-    const handleRefreshEvent = () => {
-      handleRefresh();
+  async function loadDashboardData(range = rangeRef.current) {
+    const id = ++requestId.current;
+    setIsDataLoading(true);
+    setErrors({});
+    const failures: Errors = {};
+    const safe = async <T,>(key: keyof Errors, request: Promise<T>, fallback: T): Promise<T> => {
+      try { return await request; } catch { failures[key] = 'The data request failed. Please retry.'; return fallback; }
     };
-    window.addEventListener('admin-refresh', handleRefreshEvent);
-    return () => {
-      window.removeEventListener('admin-refresh', handleRefreshEvent);
-    };
-  }, []);
-
-  const loadDashboardData = async (from = appliedRange.from, to = appliedRange.to): Promise<void> => {
     try {
-      setIsDataLoading(true);
       const currentUser = await authManager.getCurrentUser();
       const siteManagerMode = currentUser?.role === 'site_manager';
-      const [users, teams, racks, masterData, followUps, completions, activity, attendance] = await Promise.all([
-        siteManagerMode ? Promise.resolve([]) : api.getAllUsers().catch(() => []),
-        api.getTeams().catch(() => []),
-        api.getRacks({ limit: 1 }).catch(() => ({ totalCount: 0 })),
-        siteManagerMode ? Promise.resolve({ data: [] }) : api.getUploadedFilesMetadata().catch(() => ({ data: [] })),
-        api.getAuditFollowUps().catch(() => ({ data: [] })),
-        api.getAuditCompletions().catch(() => ({ data: [] })),
-        siteManagerMode ? Promise.resolve({ data: [] }) : api.getDailyTeamActivity(from, to).catch(() => ({ data: [] })),
-        siteManagerMode ? Promise.resolve({ summary: { totalStaff: 0, present: 0, absent: 0 } }) : api.getTeamAttendance({ from, to }).catch(() => ({ summary: { totalStaff: 0, present: 0, absent: 0 } }))
+      const { from, to } = range;
+      const previousPeriod = previousRange(range);
+      const [users, teams, racks, masterData, followUps, completions, activity, attendance, priorActivity, priorAttendance] = await Promise.all([
+        siteManagerMode ? [] : safe('workspace', api.getAllUsers(), []),
+        safe('portfolio', api.getTeams(), []),
+        safe('workspace', api.getRacks({ limit: 1 }), { racks: [], totalCount: 0 }),
+        siteManagerMode ? { data: [] as unknown[] } : safe('workspace', api.getUploadedFilesMetadata() as Promise<DataResponse<unknown[]>>, { data: [] }),
+        siteManagerMode ? { data: [] as AuditRecord[] } : safe('followups', api.getAuditFollowUps() as Promise<DataResponse<AuditRecord[]>>, { data: [] }),
+        siteManagerMode ? { data: [] as AuditRecord[] } : safe('completions', api.getAuditCompletions() as Promise<DataResponse<AuditRecord[]>>, { data: [] }),
+        siteManagerMode ? { data: [] as DailyActivityTeam[] } : safe('activity', api.getDailyTeamActivity(from, to) as Promise<DataResponse<DailyActivityTeam[]>>, { data: [] }),
+        siteManagerMode ? { summary: { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 } } : safe('attendance', api.getTeamAttendance({ from, to }) as Promise<AttendanceResponse>, { summary: { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 } }),
+        siteManagerMode ? null : (api.getDailyTeamActivity(previousPeriod.from, previousPeriod.to) as Promise<DataResponse<DailyActivityTeam[]>>).catch(() => null),
+        siteManagerMode ? null : (api.getTeamAttendance(previousPeriod) as Promise<AttendanceResponse>).catch(() => null),
       ]);
+      if (id !== requestId.current) return;
+      const periodTeams = (teams || []).filter((team) => String(team.status || '').toLowerCase() !== 'archived');
+      const summary = attendance.summary || { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 };
       setStats({
         users: users?.length || 0,
-        teams: teams?.length || 0,
-        currentSites: (teams || []).filter((team: any) => isWithinDashboardRange(team, currentIndiaDate(), currentIndiaDate(), ['auditStartDate', 'createdAt'])).length,
-        totalTeamMembers: (attendance as any)?.summary?.totalStaff || 0,
-        presentStaff: (attendance as any)?.summary?.present || 0,
-        absentStaff: (attendance as any)?.summary?.absent || 0,
-        totalRacks: racks?.totalCount || 0,
-        masterItems: siteManagerMode ? 0 : (masterData as any)?.data?.length || 0
+        teams: periodTeams.length,
+        currentSites: (teams || []).filter((team) => isWithinDashboardRange(team, from, to, ['createdAt'])).length,
+        totalTeamMembers: summary.totalStaff || 0,
+        presentStaff: summary.present || 0,
+        absentStaff: summary.absent || 0,
+        compoffStaff: summary.compoff || 0,
+        paidLeaveStaff: summary.paidLeave || 0,
+        travelStaff: summary.travel || 0,
+        notSetStaff: summary.notSet || 0,
+        totalRacks: racks.totalCount || 0,
+        masterItems: siteManagerMode ? 0 : masterData.data?.length || 0,
       });
-      setTeamsByAuditType(countAuditTypes((teams || []).filter((team: any) => isWithinDashboardRange(team, from, to, ['auditStartDate', 'createdAt']))));
-      setFollowUpRecords(((followUps as any)?.data || []).filter((record: any) => isWithinDashboardRange(record, from, to, ['quoteDate', 'createdAt'])));
-      setCompletionRecords(((completions as any)?.data || []).filter((record: any) => isWithinDashboardRange(record, from, to, ['startingDate', 'endDate', 'createdAt'])));
-      setDailyActivity((activity as any)?.data || []);
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error);
+      setTeamsByAuditType(countAuditTypes(periodTeams));
+      const followFields = ['quoteDate', 'createdAt'];
+      const follows = followUps.data || [];
+      const completed = completions.data || [];
+      setFollowUpRecords(follows.filter((record) => isWithinDashboardRange(record, from, to, followFields)));
+      setCompletionRecords(completed.filter((record) => isCompletionInRange(record, from, to)));
+      setDailyActivity(activity.data || []);
+      const oldTeams = priorActivity?.data;
+      const oldPeriodTeams = (teams || []).filter((team) => String(team.status || '').toLowerCase() !== 'archived');
+      setPrevious([
+        users?.length, // Users count
+        oldPeriodTeams.length, // Active sites
+        (teams || []).filter((team) => isWithinDashboardRange(team, previousPeriod.from, previousPeriod.to, ['createdAt'])).length, // Current sites in prior period
+        oldTeams?.reduce((sum, team) => sum + team.totalScans, 0),
+        oldTeams?.filter((team) => team.totalScans > 0).length,
+      ]);
+      setErrors(failures);
+    } catch {
+      if (id === requestId.current) setErrors(Object.fromEntries(['activity', 'attendance', 'portfolio', 'followups', 'completions', 'workspace'].map((key) => [key, 'Unable to load dashboard data. Please retry.'])));
     } finally {
-      setIsDataLoading(false);
+      if (id === requestId.current) setIsDataLoading(false);
     }
-  };
+  }
+  useEffect(() => {
+    void loadDashboardData();
+    const refresh = () => { void loadDashboardData(); };
+    const requests = requestId;
+    window.addEventListener('admin-refresh', refresh);
+    return () => { requests.current++; window.removeEventListener('admin-refresh', refresh); };
+  }, []);
+  useEffect(() => {
+    if (!copyFeedback) return;
+    const timeout = window.setTimeout(() => setCopyFeedback(''), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [copyFeedback]);
 
-  const loadUserProfile = async (): Promise<void> => {
-    try {
-      const user = await authManager.getCurrentUser();
-      setUserProfile(user);
-    } catch (error) {
-      console.error("Failed to load user profile for dashboard:", error);
-    }
-  };
-
-  const handleRefresh = (): void => {
-    loadDashboardData();
-    loadUserProfile();
-  };
-
-  const applyDateRange = (): void => {
-    if (!fromDate || !toDate || fromDate > toDate) return;
-    setAppliedRange({ from: fromDate, to: toDate });
-    loadDashboardData(fromDate, toDate);
-  };
-
-  const resetDateRange = (): void => {
+  function applyRange(range: Range) {
+    if (!range.from || !range.to || range.from > range.to) return;
+    rangeRef.current = range;
+    setAppliedRange(range);
+    setFromDate(range.from);
+    setToDate(range.to);
+    void loadDashboardData(range);
+  }
+  function selectPreset(label: string, days: number) {
+    setPreset(label);
+    setCustomOpen(false);
     const today = currentIndiaDate();
-    setFromDate(today);
-    setToDate(today);
-    setAppliedRange({ from: today, to: today });
-    loadDashboardData(today, today);
-  };
-
-  const copyDashboardImage = async (): Promise<void> => {
-    if (!dashboardCaptureRef.current || copyingDashboard) return;
+    applyRange({ from: shiftDay(today, -(days - 1)), to: today });
+  }
+  function changeDateRange() {
+    setCustomOpen(true);
+    setPreset('Custom');
+    requestAnimationFrame(() => { dateInputRef.current?.focus(); dateInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  }
+  async function copyDashboardImage() {
+    if (!summaryCaptureRef.current || copyingDashboard) return;
     setCopyingDashboard(true);
     setCopyFeedback('');
     try {
-      const canvas = await html2canvas(dashboardCaptureRef.current, {
-        backgroundColor: '#F8FAFC',
-        scale: 2,
-        useCORS: true,
-        windowWidth: dashboardCaptureRef.current.scrollWidth,
-        windowHeight: dashboardCaptureRef.current.scrollHeight,
+      const canvas = await html2canvas(summaryCaptureRef.current, {
+        backgroundColor: t.background, scale: 2, useCORS: true,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: Math.max(document.documentElement.clientHeight, summaryCaptureRef.current.scrollHeight),
+        onclone: (document) => {
+          document.querySelectorAll<HTMLElement>('.dashboard-chart-mark').forEach((element) => { element.style.animation = 'none'; element.style.opacity = '1'; });
+          document.querySelectorAll<HTMLElement>('[data-chart-overflow]').forEach((element) => { element.style.overflow = 'visible'; });
+          document.querySelectorAll<SVGElement>('[data-dashboard-chart]').forEach((element) => { element.style.minWidth = '0'; element.style.width = '100%'; });
+        },
       });
       const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
-        throw new Error('Image copy is not supported in this browser.');
-      }
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image copy unavailable');
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
       setCopyFeedback('Dashboard image copied');
-    } catch (error) {
-      console.error('Unable to copy dashboard image:', error);
-      setCopyFeedback('Unable to copy image');
-    } finally {
-      setCopyingDashboard(false);
-    }
-  };
+    } catch { setCopyFeedback('Unable to copy image'); } finally { setCopyingDashboard(false); }
+  }
+  const shared = { loading: isDataLoading, onChangeRange: changeDateRange, onRetry: () => { void loadDashboardData(); } };
+  const todayDate = currentIndiaDate();
+  const todayCreatedSites = (dailyActivity ? stats.currentSites : 0);
+  const activeSitesCount = stats.teams; // active non-archived sites/teams
 
-  const handleNavigation = (path: string): void => {
-    navigate(path);
-  };
-
-  return (
-    <Box ref={dashboardCaptureRef} sx={{ flexGrow: 1, bgcolor: '#F8FAFC' }}>
-      {/* Main Content */}
-      <Container maxWidth="lg" sx={{ py: 3, pb: 8 }}>
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, mb: 3, border: '1px solid #DCE6F3', borderRadius: 3, bgcolor: 'rgba(255,255,255,0.98)' }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: { md: 1 } }}>
-              <Avatar sx={{ width: 36, height: 36, bgcolor: '#E7F0FC', color: '#0059A8' }}><CalendarMonthIcon fontSize="small" /></Avatar>
-              <Box><Typography fontWeight={800} color="#172B4D">Dashboard period</Typography><Typography variant="caption" color="text.secondary">Filter audit analytics and scan activity</Typography></Box>
-            </Stack>
-            <TextField label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: { md: 165 } }} />
-            <TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} sx={{ minWidth: { md: 165 } }} />
-            <Button variant="contained" onClick={applyDateRange} disabled={!fromDate || !toDate || fromDate > toDate} sx={{ minWidth: 100, fontWeight: 800 }}>Apply</Button>
-            <Button variant="text" onClick={resetDateRange} sx={{ minWidth: 86, fontWeight: 700 }}>Today</Button>
-            <Button data-html2canvas-ignore="true" variant="outlined" onClick={copyDashboardImage} disabled={copyingDashboard} startIcon={<ContentCopyIcon />} sx={{ minWidth: 142, fontWeight: 700 }}>
-              {copyingDashboard ? 'Copying…' : 'Copy image'}
-            </Button>
-            {copyFeedback && <Typography data-html2canvas-ignore="true" variant="caption" color={copyFeedback.includes('Unable') ? 'error.main' : 'success.main'} fontWeight={700}>{copyFeedback}</Typography>}
+  const metrics = [
+    { label: 'Total Users', value: stats.users, error: errors.workspace },
+    { label: 'Active Sites', value: activeSitesCount, error: errors.portfolio },
+    { label: 'Current Sites', value: stats.currentSites, caption: 'Created today', error: errors.portfolio },
+    { label: 'Total Scans', value: dailyActivity.reduce((sum, team) => sum + team.totalScans, 0), error: errors.activity },
+    { label: 'Teams Recorded Scans', value: dailyActivity.filter((team) => team.totalScans > 0).length, error: errors.activity },
+  ];
+  return <Box ref={summaryCaptureRef} sx={{
+    minHeight: '100%', bgcolor: t.background, color: t.text, p: { xs: 2, lg: 3 },
+    fontFamily: 'Inter, Arial, sans-serif', fontStyle: 'normal', fontVariantNumeric: 'tabular-nums',
+    '& *, & .MuiTypography-root, & input, & button': { fontStyle: 'normal', fontFamily: 'inherit' },
+    '& button': { textTransform: 'none' }, '& svg text': { fontFamily: 'Inter, Arial, sans-serif' },
+    '& .dashboard-chart-mark': { animation: 'dashboardReveal 400ms ease both' },
+    '@keyframes dashboardReveal': { from: { opacity: 0 }, to: { opacity: 1 } },
+    '@media (prefers-reduced-motion: reduce)': { '& *, & .dashboard-chart-mark': { animation: 'none', transition: 'none' } },
+  }}>
+    <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'center' }} gap={2} sx={{ mb: 2 }}>
+      <Box><Typography component="h1" sx={{ fontSize: { xs: 23, md: 27 }, fontWeight: 750, letterSpacing: '-.6px', color: t.heading }}>Parts Audit Summary</Typography></Box>
+      <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
+        <Chip icon={<CalendarMonthIcon />} label={formatDate(appliedRange.from) + ' – ' + formatDate(appliedRange.to)} onClick={changeDateRange} variant="outlined" sx={{ bgcolor: t.surface, borderColor: t.border, fontSize: 12 }} />
+        <Stack data-html2canvas-ignore="true" direction="row" sx={{ bgcolor: '#E9EFF7', borderRadius: 2, p: .5 }}>
+          {['Today', '7D', '30D', 'Custom'].map((label, i) => <Button key={label} size="small" aria-pressed={preset === label} onClick={() => label === 'Custom' ? changeDateRange() : selectPreset(label, [1, 7, 30][i])} sx={{ minWidth: 48, fontSize: 12, bgcolor: preset === label ? t.surface : 'transparent', color: preset === label ? t.primary : t.muted }}>{label}</Button>)}
+        </Stack>
+        <Button data-html2canvas-ignore="true" variant="contained" disableElevation size="small" onClick={copyDashboardImage} disabled={copyingDashboard || isDataLoading} startIcon={<ContentCopyIcon />} sx={{ bgcolor: t.primary, py: 1, borderRadius: 2 }}>{copyingDashboard ? 'Copying…' : 'Copy image'}</Button>
+      </Stack>
+    </Stack>
+    {customOpen && <Stack data-html2canvas-ignore="true" direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ mb: 2 }}><TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} /><TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} /><Button variant="contained" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }}>Apply range</Button></Stack>}
+    {copyFeedback && <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 12, mb: 1, color: copyFeedback.startsWith('Unable') ? t.danger : t.success }}>{copyFeedback}</Typography>}
+    <Box sx={{ bgcolor: t.surface, border: `1px solid ${t.border}`, borderRadius: 4, boxShadow: t.shadow, overflow: 'hidden' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, borderBottom: `1px solid ${t.border}` }}>
+        {metrics.map((metric, i) => <Box key={metric.label} component="section" sx={{ px: { xs: 2, md: 2.5 }, py: 2, minWidth: 0, borderRight: { xs: i % 2 === 0 ? `1px solid ${t.border}` : 'none', lg: i < 4 ? `1px solid ${t.border}` : 'none' }, borderBottom: { xs: i < 4 ? `1px solid ${t.border}` : 'none', lg: 'none' } }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography sx={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '.18px', textTransform: 'uppercase' }}>{metric.label}</Typography>
+            {metric.caption && <Typography sx={{ fontSize: 10, color: t.primary, fontWeight: 650, bgcolor: '#EEF4FF', px: 0.75, py: 0.15, borderRadius: 1 }}>{metric.caption}</Typography>}
           </Stack>
-        </Paper>
-        
-        {/* Statistics Section */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
-          {!isSiteManager && (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <StatsCard
-                title="Total Users"
-                value={stats.users}
-                icon={PeopleIcon}
-                color="#004F98"
-                trend="+12%"
-              />
-            </Grid>
-          )}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard 
-              title="Active Teams"
-              value={stats.teams}
-              icon={GroupsIcon}
-              color="#10B981"
-              trend="+3"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard
-              title="Current Sites"
-              value={stats.currentSites}
-              icon={Business}
-              color="#7C3AED"
-              trend="Created today"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard
-              title="Total Team Members"
-              value={stats.totalTeamMembers}
-              icon={GroupsIcon}
-              color="#2563EB"
-              trend="Active staff"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard
-              title="Present Staff"
-              value={stats.presentStaff}
-              icon={CheckCircle}
-              color="#15803D"
-              trend="Selected period"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatsCard
-              title="Absent Staff"
-              value={stats.absentStaff}
-              icon={PeopleIcon}
-              color="#DC2626"
-              trend="Selected period"
-            />
-          </Grid>
-         
-          {!isSiteManager && (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <StatsCard
-                title="Master Items"
-                value={stats.masterItems}
-                icon={DescriptionIcon}
-                color="#F59E0B"
-                trend="Sync"
-              />
-            </Grid>
-          )}
-        </Grid>
+          {isDataLoading ? <Box sx={{ height: 36, width: '55%', bgcolor: '#E8EFF8', borderRadius: 1.5, mt: 1 }} /> : metric.error ? <Typography sx={{ mt: 1, fontSize: 12, color: t.danger }}>Unavailable</Typography> : <Typography sx={{ mt: .5, fontSize: { xs: 24, md: 29 }, lineHeight: 1.1, fontWeight: 780, letterSpacing: '-1px', color: metric.value ? t.heading : t.muted }}>{numberFormat(metric.value)}</Typography>}
+        </Box>)}
+      </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        {!isSiteManager && <Box sx={{ mb: 6 }}>
-          <Typography variant="h5" fontWeight={800} color="#172B4D" sx={{ mb: 0.5 }}>Audit overview</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Team counts by subcategory and audit details from {new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN')} to {new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN')}</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', mb: 3 }}>
-            {teamsByAuditType.map((item, index) => <Paper key={item.label} elevation={0} sx={{ p: 2, minWidth: 0, border: '1px solid #E2E8F0', borderTop: `4px solid ${auditChartColors[index % auditChartColors.length]}`, borderRadius: 2.5 }}><Typography variant="body2" color="text.secondary" fontWeight={700}>{item.label}</Typography><Typography variant="h4" fontWeight={800} color="#172B4D" sx={{ mt: 0.5 }}>{isDataLoading ? '—' : item.count}</Typography><Typography variant="caption" color="text.secondary">Teams in period</Typography></Paper>)}
-          </Box>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Follow-ups" records={followUpRecords} loading={isDataLoading} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><AuditStatePie title="Audit Completion" records={completionRecords} loading={isDataLoading} /></Grid>
-          </Grid>
-        </Box>}
-
-        {!isSiteManager && <Box sx={{ mb: 6, order: -1 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2.5 }}>
-            <Box>
-              <Typography variant="h5" fontWeight={800} color="#172B4D">Today’s user activity</Typography>
-              <Typography variant="body2" color="text.secondary">Scans recorded in the selected period, grouped by team and assigned member.</Typography>
-            </Box>
-            <Chip icon={<Schedule />} label={`${new Date(`${appliedRange.from}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} – ${new Date(`${appliedRange.to}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`} variant="outlined" sx={{ fontWeight: 700 }} />
-          </Stack>
-
-          {isDataLoading ? <LinearProgress sx={{ borderRadius: 2 }} /> : dailyActivity.length === 0 ? (
-            <Paper elevation={0} sx={{ p: 3, textAlign: 'center', border: '1px dashed #B8C7DA', borderRadius: 3, bgcolor: '#FBFDFF' }}>
-              <Typography fontWeight={700} color="#334155">No scans recorded in this period</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Team activity will appear here when members scan racks during the selected dates.</Typography>
-            </Paper>
-          ) : (
-            <Grid container spacing={2.5}>
-              {dailyActivity.map((team) => (
-                <Grid key={team.teamId} size={{ xs: 12, md: 6 }}>
-                  <Paper elevation={0} sx={{ height: '100%', overflow: 'hidden', border: '1px solid #DCE6F3', borderRadius: 3, bgcolor: '#FFF' }}>
-                    <Box sx={{ px: 2.5, py: 1.75, bgcolor: '#F3F8FE', borderBottom: '1px solid #DCE6F3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography fontWeight={800} color="#172B4D" noWrap>{team.teamName}</Typography>
-                        <Typography variant="caption" color="text.secondary">{team.auditType} · {team.location || 'Location not set'}</Typography>
-                      </Box>
-                      <Chip label={`${team.totalScans} scans`} color="primary" size="small" sx={{ fontWeight: 800, flexShrink: 0 }} />
-                    </Box>
-                    <Stack divider={<Divider flexItem />}>
-                      {team.members.map((member) => (
-                        <Box key={member.id} sx={{ px: 2.5, py: 1.35, display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                          <Avatar sx={{ width: 34, height: 34, fontSize: 14, fontWeight: 800, bgcolor: member.scanCount ? '#DDF6E9' : '#EEF2F7', color: member.scanCount ? '#087C43' : '#64748B' }}>
-                            {member.name.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" fontWeight={750} noWrap>{member.name}</Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>{member.role}</Typography>
-                          </Box>
-                          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                            <Typography fontWeight={850} color={member.scanCount ? '#087C43' : '#64748B'}>{member.scanCount}</Typography>
-                            <Typography variant="caption" color="text.secondary">scans</Typography>
-                          </Box>
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Box>}
-
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
+        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}` }}>
+          <RankedChart items={teamsByAuditType} {...shared} error={errors.portfolio} />
         </Box>
-
-        {/* Management Tools Section — temporarily hidden */}
-        {false && <Box sx={{ mb: { xs: 4, md: 6 } }}>
-          <Stack 
-            direction="row" 
-            alignItems="center" 
-            justifyContent="center" 
-            spacing={2} 
-            sx={{ mb: 4 }}
-          >
-            <Divider sx={{ flexGrow: 1, borderColor: '#E2E8F0' }} />
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 800,
-                color: '#1E293B',
-                letterSpacing: '-0.5px',
-                textAlign: 'center',
-                px: 2
-              }}
-            >
-              Management Console
-            </Typography>
-            <Divider sx={{ flexGrow: 1, borderColor: '#E2E8F0' }} />
+        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}`, borderLeft: { lg: `1px solid ${t.border}` } }}>
+          <AttendanceChart
+            present={stats.presentStaff}
+            absent={stats.absentStaff}
+            compoff={stats.compoffStaff}
+            paidLeave={stats.paidLeaveStaff}
+            travel={stats.travelStaff}
+            notSet={stats.notSetStaff}
+            totalStaff={stats.totalTeamMembers}
+            {...shared}
+            error={errors.attendance}
+          />
+        </Box>
+        <Box component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 2.5 }, borderBottom: `1px solid ${t.border}`, bgcolor: '#F8FAFD' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
+            <Box>
+              <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
+                Current Teams & User Activity
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                size="small"
+                placeholder="Search team or site…"
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                sx={{
+                  width: { xs: '100%', sm: 220 },
+                  bgcolor: '#FFFFFF',
+                  borderRadius: 1,
+                  '& .MuiInputBase-input': { fontSize: 12, py: 0.65, px: 1 },
+                }}
+              />
+              <Button
+                size="small"
+                variant={onlyActiveTeams ? 'contained' : 'outlined'}
+                onClick={() => setOnlyActiveTeams(!onlyActiveTeams)}
+                sx={{ fontSize: 11.5, py: 0.6, whiteSpace: 'nowrap' }}
+              >
+                {onlyActiveTeams ? 'Active only' : 'All teams'}
+              </Button>
+            </Stack>
           </Stack>
 
-          <Grid container spacing={3}>
-            {managementTools.map((tool, index) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={index}>
-                <ProfessionalCard
-                  onClick={() => handleNavigation(tool.path)}
-                  sx={{ cursor: 'pointer', height: '100%' }}
+          <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
+            {(() => {
+              const count = visibleTeams.length;
+              // Dynamic column count based on team count:
+              // 1 to 4 items  -> display all in 1 row (columns = count)
+              // 5 to 6 items  -> 3 columns (3 x 2)
+              // 7 or more     -> 4 columns (4 x 2, 4 x 3, etc.)
+              const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
+              return (
+                <Box
+                  sx={{
+                    maxHeight: 440,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    pr: 0.5,
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: count === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                      md: `repeat(${cols}, minmax(0, 1fr))`,
+                    },
+                    gap: 1.5,
+                  }}
                 >
-                  <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: tool.bgColor,
-                        color: tool.color,
-                        width: 64,
-                        height: 64,
-                        mx: 'auto',
-                        mb: 2,
-                        boxShadow: `0 4px 12px ${tool.color}20`
-                      }}
-                    >
-                      <tool.icon sx={{ fontSize: 32 }} />
-                    </Avatar>
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#1E293B' }}>
-                      {tool.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {tool.description}
-                    </Typography>
-                  </CardContent>
-                </ProfessionalCard>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>}
-      </Container>
-
-      {/* Professional Footer */}
-      <Box sx={{
-        bgcolor: '#1F2937',
-        color: 'white',
-        py: { xs: 3, md: 4 },
-        mt: { xs: 4, md: 6 }
-      }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1.5, md: 2 } }}>
-                <Business sx={{ fontSize: { xs: 22, md: 24 }, mr: 1.5 }} />
-                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '1rem', md: '1.1rem' } }}>
-                  Parts Auditing System
-                </Typography>
-              </Box>
-              <Typography variant="body2" sx={{
-                color: 'rgba(255, 255, 255, 0.7)',
-                mb: { xs: 1.5, md: 2 },
-                fontSize: { xs: '0.75rem', md: '0.8rem' }
-              }}>
-                Professional management platform for modern businesses. Streamline operations, enhance productivity, and drive growth.
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <CheckCircle sx={{ color: '#10B981', mr: 1, fontSize: { xs: 14, md: 16 } }} />
-                <Typography variant="body2" sx={{
-                  color: '#10B981',
-                  fontWeight: 600,
-                  fontSize: { xs: '0.75rem', md: '0.8rem' }
-                }}>
-                  System Status: Online
-                </Typography>
-              </Box>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: { xs: 1.5, md: 2 }, fontSize: { xs: '1rem', md: '1.1rem' } }}>
-                Quick Links
-              </Typography>
-              <Stack spacing={isMobile ? 0.5 : 1}>
-                {managementTools.map((tool) => (
-                  <Typography
-                    key={tool.path}
-                    variant="body2"
-                    onClick={() => handleNavigation(tool.path)}
+              {visibleTeams.map((team) => {
+                const typeStyle = getAuditTypeColor(team.auditType);
+                const hasScans = team.totalScans > 0;
+                return (
+                  <Box
+                    key={team.teamId}
                     sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      cursor: 'pointer',
-                      '&:hover': { color: 'white' },
-                      fontSize: { xs: '0.75rem', md: '0.8rem' }
+                      bgcolor: '#FFFFFF',
+                      borderRadius: 2.25,
+                      border: `1.5px solid ${hasScans ? '#93C5FD' : '#E2E8F0'}`,
+                      borderTop: `4px solid ${typeStyle.bar}`,
+                      background: hasScans ? 'linear-gradient(180deg, #F8FAFD 0%, #FFFFFF 52px)' : '#FFFFFF',
+                      boxShadow: hasScans ? '0 3px 10px rgba(37, 99, 235, 0.07)' : '0 1px 3px rgba(0,0,0,0.03)',
+                      p: 1.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
+                        borderColor: typeStyle.bar,
+                      },
                     }}
                   >
-                    {tool.title}
-                  </Typography>
-                ))}
-              </Stack>
-            </Grid>
+                    {/* Team Header */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1, minWidth: 0 }}>
+                      <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0, mb: 0.35 }}>
+                          <Typography
+                            sx={{
+                              fontSize: 14,
+                              fontWeight: 800,
+                              color: '#0F172A',
+                              lineHeight: 1.25,
+                            }}
+                            noWrap
+                            title={team.teamName}
+                          >
+                            {team.teamName}
+                          </Typography>
+                          <Box
+                            sx={{
+                              px: 0.75,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: 9.5,
+                              fontWeight: 800,
+                              letterSpacing: '0.3px',
+                              bgcolor: typeStyle.bg,
+                              color: typeStyle.color,
+                              border: `1px solid ${typeStyle.border}`,
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {team.auditType}
+                          </Box>
+                        </Stack>
+                        <Typography
+                          sx={{
+                            fontSize: 10.5,
+                            color: '#64748B',
+                          }}
+                          noWrap
+                          title={team.location || ''}
+                        >
+                          {team.location || 'No location specified'}
+                        </Typography>
+                      </Box>
+                      {hasScans ? (
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.3,
+                            borderRadius: '12px',
+                            bgcolor: '#EFF6FF',
+                            color: '#1D4ED8',
+                            border: '1.5px solid #93C5FD',
+                            fontSize: 11,
+                            fontWeight: 850,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                          }}
+                        >
+                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#2563EB' }} />
+                          {numberFormat(team.totalScans)} scans
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            px: 0.9,
+                            py: 0.25,
+                            borderRadius: '12px',
+                            bgcolor: '#F1F5F9',
+                            color: '#64748B',
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                        >
+                          0 scans
+                        </Box>
+                      )}
+                    </Box>
 
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: { xs: 1.5, md: 2 }, fontSize: { xs: '1rem', md: '1.1rem' } }}>
-                Contact Information
-              </Typography>
-              <Stack spacing={isMobile ? 0.5 : 1}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Email sx={{ mr: 1.5, fontSize: { xs: 14, md: 16 }, color: 'rgba(255, 255, 255, 0.7)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.75rem', md: '0.8rem' } }}>
-                    focusenggapps@gmail.com
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Phone sx={{ mr: 1.5, fontSize: { xs: 14, md: 16 }, color: 'rgba(255, 255, 255, 0.7)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.75rem', md: '0.8rem' } }}>
-                    +91 9047878224
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <LocationOn sx={{ mr: 1.5, fontSize: { xs: 14, md: 16 }, color: 'rgba(255, 255, 255, 0.7)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.75rem', md: '0.8rem' } }}>
-                    Gudiyatham, Vellore, Tamil Nadu, India, 632602.
-                  </Typography>
-                </Box>
-              </Stack>
-            </Grid>
-          </Grid>
-
-          <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: { xs: 2.5, md: 3 } }} />
-
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
-              © {new Date().getFullYear()} Parts Auditing System. All rights reserved. Professional Management Platform
-            </Typography>
-          </Box>
-        </Container>
+                    {/* User Activity Section */}
+                    <Box sx={{ pt: 0.85, borderTop: '1px solid #F1F5F9', minHeight: 46 }}>
+                      <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.65 }}>
+                        USER ACTIVITY
+                      </Typography>
+                      {team.members.length === 0 ? (
+                        <Typography sx={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', py: 0.25 }}>
+                          No assigned members
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                          {team.members.map((member) => (
+                            <Box
+                              key={member.id}
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: member.scanCount > 0 ? 0.9 : 0.85,
+                                py: 0.3,
+                                borderRadius: '14px',
+                                border: `1.5px solid ${member.scanCount > 0 ? '#059669' : '#CBD5E1'}`,
+                                bgcolor: member.scanCount > 0 ? '#ECFDF5' : '#F8FAFC',
+                                boxShadow: member.scanCount > 0 ? '0 1px 3px rgba(5, 150, 105, 0.12)' : 'none',
+                              }}
+                            >
+                              <PersonIcon sx={{ fontSize: 13, color: member.scanCount > 0 ? '#059669' : '#64748B' }} />
+                              <Typography sx={{ fontSize: 11, fontWeight: member.scanCount > 0 ? 750 : 650, color: member.scanCount > 0 ? '#065F46' : '#1E293B' }}>
+                                {member.name}
+                              </Typography>
+                              {member.scanCount > 0 ? (
+                                <Box
+                                  sx={{
+                                    px: 0.55,
+                                    py: 0.05,
+                                    borderRadius: '8px',
+                                    bgcolor: '#059669',
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {member.scanCount}
+                                </Box>
+                              ) : (
+                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94A3B8' }}>
+                                  : 0
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          );
+        })()}
+            </ChartState>
+        </Box>
+        <Box component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 3 } }}>
+          <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
+        </Box>
       </Box>
     </Box>
-  );
-};
+  </Box>;
+}
+const numberFormat = (value: number) => value.toLocaleString('en-IN');
 
-export default AdminDashboard;
+const getAuditTypeColor = (type?: string) => {
+  const str = String(type || '').toUpperCase();
+  if (str.includes('TATA')) {
+    return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', bar: '#2563EB' };
+  }
+  if (str.includes('3W')) {
+    return { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', bar: '#EA580C' };
+  }
+  if (str.includes('TVS')) {
+    return { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0', bar: '#059669' };
+  }
+  return { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE', bar: '#7C3AED' };
+};
