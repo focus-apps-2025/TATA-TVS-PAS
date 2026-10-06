@@ -957,6 +957,9 @@ uploadDMS: (data: { teamId: string, fileName: string, items: any[] }): Promise<A
         apiService.get<ApiResponse>('/employees/attendance', {
             params: typeof dateOrRange === 'string' ? { date: dateOrRange } : dateOrRange
         }).then(response => response.data),
+
+    upsertDailyAttendance: (userId: string, date: string, status: string): Promise<ApiResponse> =>
+        apiService.post<ApiResponse>('/employees/attendance/daily', { userId, date, status }).then(response => response.data),
  }
 
 export default api;
