@@ -61,6 +61,17 @@ const countAuditTypes = (records: Team[]) => {
 const parseDashboardDate = (value: unknown): string | null => {
   const raw = String(value || '').trim();
   if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(new Date(raw));
+      const val = (type: string) => parts.find((p) => p.type === type)?.value || '';
+      return `${val('year')}-${val('month')}-${val('day')}`;
+    } catch {
+      return raw.slice(0, 10);
+    }
+  }
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   return match ? `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}` : null;
@@ -154,9 +165,12 @@ export default function AdminDashboard() {
     return dailyActivity.filter((team) => {
       const meta = teamMetaMap.get(String(team.teamId));
       const recordToCheck = meta || (team as unknown as Record<string, unknown>);
-      const isCurrentDateTeam =
-        team.totalScans > 0 ||
-        isWithinDashboardRange(recordToCheck as unknown as Record<string, unknown>, from, to, ['createdAt', 'auditStartDate']);
+      const isCurrentDateTeam = isWithinDashboardRange(
+        recordToCheck as unknown as Record<string, unknown>,
+        from,
+        to,
+        ['createdAt']
+      );
 
       if (!isCurrentDateTeam) return false;
       if (onlyActiveTeams && team.totalScans === 0) return false;
