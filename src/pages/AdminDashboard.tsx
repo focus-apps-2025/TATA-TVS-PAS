@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -14,6 +14,9 @@ import { dashboardTokens as t } from '../components/common/dashboardTheme';
 interface DailyActivityTeam {
   teamId: string; teamName: string; auditType: string; location: string; totalScans: number;
   members: { id: string; name: string; email: string; role: string; scanCount: number }[];
+  createdAt?: string;
+  auditStartDate?: string;
+  status?: string;
 }
 type AuditRecord = {
   state?: string; quoteDate?: string; startingDate?: string; endDate?: string;
@@ -130,18 +133,39 @@ export default function AdminDashboard() {
   const [copyFeedback, setCopyFeedback] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
   const [onlyActiveTeams, setOnlyActiveTeams] = useState(false);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
 
-  const visibleTeams = dailyActivity.filter((team) => {
-    if (onlyActiveTeams && team.totalScans === 0) return false;
-    if (!teamSearch.trim()) return true;
-    const q = teamSearch.toLowerCase();
-    return (
-      team.teamName.toLowerCase().includes(q) ||
-      (team.location && team.location.toLowerCase().includes(q)) ||
-      team.auditType.toLowerCase().includes(q) ||
-      team.members.some((m) => m.name.toLowerCase().includes(q))
-    );
-  });
+  const teamMetaMap = useMemo(() => {
+    const map = new Map<string, Team>();
+    allTeams.forEach((t) => {
+      const id = String(t._id || t.id || '');
+      if (id) map.set(id, t);
+    });
+    return map;
+  }, [allTeams]);
+
+  const visibleTeams = useMemo(() => {
+    const from = appliedRange.from;
+    const to = appliedRange.to;
+    return dailyActivity.filter((team) => {
+      const meta = teamMetaMap.get(String(team.teamId));
+      const recordToCheck = meta || (team as unknown as Record<string, unknown>);
+      const isCurrentDateTeam =
+        team.totalScans > 0 ||
+        isWithinDashboardRange(recordToCheck as unknown as Record<string, unknown>, from, to, ['createdAt', 'auditStartDate']);
+
+      if (!isCurrentDateTeam) return false;
+      if (onlyActiveTeams && team.totalScans === 0) return false;
+      if (!teamSearch.trim()) return true;
+      const q = teamSearch.toLowerCase();
+      return (
+        team.teamName.toLowerCase().includes(q) ||
+        (team.location && team.location.toLowerCase().includes(q)) ||
+        team.auditType.toLowerCase().includes(q) ||
+        team.members.some((m) => m.name.toLowerCase().includes(q))
+      );
+    });
+  }, [dailyActivity, teamMetaMap, appliedRange, onlyActiveTeams, teamSearch]);
 
   async function loadDashboardData(range = rangeRef.current) {
     const id = ++requestId.current;
@@ -169,6 +193,7 @@ export default function AdminDashboard() {
         siteManagerMode ? null : (api.getTeamAttendance(previousPeriod) as Promise<AttendanceResponse>).catch(() => null),
       ]);
       if (id !== requestId.current) return;
+      setAllTeams(teams || []);
       const periodTeams = (teams || []).filter((team) => String(team.status || '').toLowerCase() !== 'archived');
       const summary = attendance.summary || { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 };
       setStats({
