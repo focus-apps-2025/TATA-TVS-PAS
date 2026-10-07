@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
@@ -131,6 +131,10 @@ export default function AdminDashboard() {
   const [previous, setPrevious] = useState<(number | undefined)[]>([]);
   const [copyingDashboard, setCopyingDashboard] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState('');
+  const teamsSectionRef = useRef<HTMLDivElement>(null);
+  const [copyingTeams, setCopyingTeams] = useState(false);
+  const [copyingTeamId, setCopyingTeamId] = useState<string | null>(null);
+  const [teamCopyFeedback, setTeamCopyFeedback] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
   const [onlyActiveTeams, setOnlyActiveTeams] = useState(false);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
@@ -245,6 +249,11 @@ export default function AdminDashboard() {
     const timeout = window.setTimeout(() => setCopyFeedback(''), 2000);
     return () => window.clearTimeout(timeout);
   }, [copyFeedback]);
+  useEffect(() => {
+    if (!teamCopyFeedback) return;
+    const timeout = window.setTimeout(() => setTeamCopyFeedback(''), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [teamCopyFeedback]);
 
   function applyRange(range: Range) {
     if (!range.from || !range.to || range.from > range.to) return;
@@ -285,6 +294,68 @@ export default function AdminDashboard() {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
       setCopyFeedback('Dashboard image copied');
     } catch { setCopyFeedback('Unable to copy image'); } finally { setCopyingDashboard(false); }
+  }
+
+  async function copyTeamsSectionImage() {
+    if (!teamsSectionRef.current || copyingTeams) return;
+    setCopyingTeams(true);
+    setTeamCopyFeedback('');
+    try {
+      const canvas = await html2canvas(teamsSectionRef.current, {
+        backgroundColor: '#F8FAFD',
+        scale: 2,
+        useCORS: true,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: Math.max(document.documentElement.clientHeight, teamsSectionRef.current.scrollHeight),
+        onclone: (document) => {
+          document.querySelectorAll<HTMLElement>('[data-teams-scroll]').forEach((element) => {
+            element.style.maxHeight = 'none';
+            element.style.overflow = 'visible';
+          });
+          document.querySelectorAll<HTMLElement>('.dashboard-chart-mark').forEach((element) => {
+            element.style.animation = 'none';
+            element.style.opacity = '1';
+          });
+        },
+      });
+      const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image copy unavailable');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      setTeamCopyFeedback('Teams section image copied to clipboard');
+    } catch {
+      setTeamCopyFeedback('Unable to copy teams image');
+    } finally {
+      setCopyingTeams(false);
+    }
+  }
+
+  async function copySingleTeamImage(teamId: string, teamName: string) {
+    const el = document.getElementById(`team-card-${teamId}`);
+    if (!el || copyingTeamId) return;
+    setCopyingTeamId(teamId);
+    setTeamCopyFeedback('');
+    try {
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#FFFFFF',
+        scale: 2,
+        useCORS: true,
+        onclone: (document) => {
+          const card = document.getElementById(`team-card-${teamId}`);
+          if (card) {
+            card.style.transform = 'none';
+            card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+          }
+        },
+      });
+      const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image copy unavailable');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      setTeamCopyFeedback(`"${teamName}" card copied`);
+    } catch {
+      setTeamCopyFeedback('Unable to copy card image');
+    } finally {
+      setCopyingTeamId(null);
+    }
   }
   const shared = { loading: isDataLoading, onChangeRange: changeDateRange, onRetry: () => { void loadDashboardData(); } };
   const todayDate = currentIndiaDate();
@@ -347,14 +418,26 @@ export default function AdminDashboard() {
             error={errors.attendance}
           />
         </Box>
-        <Box component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 2.5 }, borderBottom: `1px solid ${t.border}`, bgcolor: '#F8FAFD' }}>
+        <Box ref={teamsSectionRef} component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 2.5 }, borderBottom: `1px solid ${t.border}`, bgcolor: '#F8FAFD' }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
             <Box>
-              <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
-                Current Teams & User Activity
-              </Typography>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
+                  Current Teams & User Activity
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${visibleTeams.length} ${visibleTeams.length === 1 ? 'team' : 'teams'}`}
+                  sx={{ fontSize: 11, fontWeight: 650, height: 22, bgcolor: '#E2E8F0', color: '#334155' }}
+                />
+              </Stack>
+              {teamCopyFeedback && (
+                <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mt: 0.5, color: teamCopyFeedback.startsWith('Unable') ? t.danger : t.success, fontWeight: 650 }}>
+                  {teamCopyFeedback}
+                </Typography>
+              )}
             </Box>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack data-html2canvas-ignore="true" direction="row" spacing={1} alignItems="center">
               <TextField
                 size="small"
                 placeholder="Search team or site…"
@@ -375,6 +458,26 @@ export default function AdminDashboard() {
               >
                 {onlyActiveTeams ? 'Active only' : 'All teams'}
               </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={copyTeamsSectionImage}
+                disabled={copyingTeams || isDataLoading || visibleTeams.length === 0}
+                startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
+                sx={{
+                  fontSize: 11.5,
+                  py: 0.6,
+                  px: 1.25,
+                  whiteSpace: 'nowrap',
+                  bgcolor: '#FFFFFF',
+                  borderColor: '#CBD5E1',
+                  color: '#1E293B',
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: '#F8FAFC', borderColor: '#94A3B8' },
+                }}
+              >
+                {copyingTeams ? 'Copying…' : 'Copy image'}
+              </Button>
             </Stack>
           </Stack>
 
@@ -388,6 +491,7 @@ export default function AdminDashboard() {
               const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
               return (
                 <Box
+                  data-teams-scroll="true"
                   sx={{
                     maxHeight: 440,
                     overflowY: 'auto',
@@ -408,6 +512,7 @@ export default function AdminDashboard() {
                 return (
                   <Box
                     key={team.teamId}
+                    id={`team-card-${team.teamId}`}
                     sx={{
                       bgcolor: '#FFFFFF',
                       borderRadius: 2.25,
@@ -474,44 +579,62 @@ export default function AdminDashboard() {
                           {team.location || 'No location specified'}
                         </Typography>
                       </Box>
-                      {hasScans ? (
-                        <Box
-                          sx={{
-                            px: 1,
-                            py: 0.3,
-                            borderRadius: '12px',
-                            bgcolor: '#EFF6FF',
-                            color: '#1D4ED8',
-                            border: '1.5px solid #93C5FD',
-                            fontSize: 11,
-                            fontWeight: 850,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                          }}
-                        >
-                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#2563EB' }} />
-                          {numberFormat(team.totalScans)} scans
-                        </Box>
-                      ) : (
-                        <Box
-                          sx={{
-                            px: 0.9,
-                            py: 0.25,
-                            borderRadius: '12px',
-                            bgcolor: '#F1F5F9',
-                            color: '#64748B',
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                          }}
-                        >
-                          0 scans
-                        </Box>
-                      )}
+                      <Stack direction="row" alignItems="center" spacing={0.5} flexShrink={0}>
+                        {hasScans ? (
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.3,
+                              borderRadius: '12px',
+                              bgcolor: '#EFF6FF',
+                              color: '#1D4ED8',
+                              border: '1.5px solid #93C5FD',
+                              fontSize: 11,
+                              fontWeight: 850,
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#2563EB' }} />
+                            {numberFormat(team.totalScans)} scans
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              px: 0.9,
+                              py: 0.25,
+                              borderRadius: '12px',
+                              bgcolor: '#F1F5F9',
+                              color: '#64748B',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            0 scans
+                          </Box>
+                        )}
+                        <Tooltip title="Copy team card as image">
+                          <IconButton
+                            data-html2canvas-ignore="true"
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void copySingleTeamImage(team.teamId, team.teamName);
+                            }}
+                            disabled={copyingTeamId === team.teamId}
+                            sx={{
+                              p: 0.35,
+                              color: '#64748B',
+                              '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
+                            }}
+                          >
+                            <ContentCopyIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Box>
 
                     {/* User Activity Section */}
