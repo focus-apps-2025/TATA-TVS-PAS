@@ -1,5 +1,9 @@
 import { useId, useState } from 'react';
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
+import PersonIcon from '@mui/icons-material/Person';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import { ChartHeading, ChartState, LegendToggle } from './DashboardPrimitives';
 import { dashboardTokens as t } from './dashboardTheme';
 
@@ -92,139 +96,339 @@ export function AttendanceChart({
   notSet?: number;
   totalStaff?: number;
 }) {
-  const categories = [
-    { label: 'Present', count: present, color: '#159C8C', lightColor: '#D3F4EE' },
-    { label: 'Absent', count: absent, color: '#BE6653', lightColor: '#FBE8E5' },
-    { label: 'Comp-off', count: compoff, color: '#D97706', lightColor: '#FEF3C7' },
-    { label: 'Paid Leave', count: paidLeave, color: '#2563EB', lightColor: '#DBEAFE' },
-    { label: 'Travel', count: travel, color: '#7C3AED', lightColor: '#EDE9FE' },
-  ];
-
   const totalDetermined = present + absent + compoff + paidLeave + travel;
-  const workforceTotal = totalStaff !== undefined ? totalStaff : (totalDetermined + notSet);
+  const workforceTotal = totalStaff !== undefined && totalStaff > 0 ? totalStaff : (totalDetermined + notSet);
   const activeAvailability = workforceTotal > 0 ? ((present + travel) / workforceTotal) * 100 : 0;
-  const circumference = 2 * Math.PI * 64;
+  const circumference = 2 * Math.PI * 66;
 
-  // Build SVG multi-segment donut
-  let accumulatedPercent = 0;
-  const donutSegments = categories
-    .filter((cat) => cat.count > 0 && workforceTotal > 0)
-    .map((cat) => {
-      const share = (cat.count / workforceTotal) * 100;
-      const strokeDashoffset = -1 * (circumference * accumulatedPercent / 100);
-      const strokeDasharray = `${circumference * share / 100} ${circumference}`;
-      accumulatedPercent += share;
-      return { ...cat, strokeDashoffset, strokeDasharray, share };
-    });
+  // Active presence slice
+  const availableShare = Math.min(100, Math.max(0, activeAvailability));
+  const activeStrokeDash = `${(circumference * availableShare) / 100} ${circumference}`;
+
+  const calcPercent = (val: number) => (workforceTotal > 0 ? ((val / workforceTotal) * 100).toFixed(1) : '0.0');
 
   return (
-    <>
-      <ChartHeading
-        title="Attendance & Workforce Availability"
-      />
+    <Box sx={{ width: '100%' }}>
+      <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 2 }}>
+        <Box sx={{ bgcolor: '#EFF6FF', p: 0.75, borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <PersonIcon sx={{ fontSize: 20, color: '#1D4ED8' }} />
+        </Box>
+        <Typography component="h2" sx={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
+          Attendance &amp; Workforce Availability
+        </Typography>
+      </Stack>
+
       <ChartState {...state} empty={workforceTotal === 0}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Top Analytical Donut */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Box sx={{ position: 'relative', width: 150, height: 150, flexShrink: 0 }}>
-              <svg viewBox="0 0 180 180" width="150" height="150" role="img" aria-label="Workforce attendance chart">
-                <circle cx="90" cy="90" r="64" fill="none" stroke="#E9EFF6" strokeWidth="18" />
-                {donutSegments.map((seg) => (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '170px 1fr 1fr' },
+            gap: { xs: 2, md: 2.5 },
+            alignItems: 'center',
+            p: { xs: 1.5, md: 2 },
+            bgcolor: '#FFFFFF',
+            borderRadius: 3,
+            minHeight: 210,
+          }}
+        >
+          {/* Left: Donut with availability percentage */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRight: { sm: '1px solid #F1F5F9' },
+              pr: { sm: 1.5 },
+            }}
+          >
+            <Box
+              sx={{
+                position: 'relative',
+                width: 148,
+                height: 148,
+                p: 0.75,
+                borderRadius: '50%',
+                bgcolor: '#F8FAFC',
+                boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.04)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg viewBox="0 0 170 170" width="138" height="138" role="img" aria-label="Workforce attendance chart">
+                <circle cx="85" cy="85" r="66" fill="none" stroke="#E2E8F0" strokeWidth="18" />
+                {availableShare > 0 && (
                   <circle
-                    key={seg.label}
                     className="dashboard-chart-mark"
-                    cx="90"
-                    cy="90"
-                    r="64"
+                    cx="85"
+                    cy="85"
+                    r="66"
                     fill="none"
-                    stroke={seg.color}
+                    stroke="#10B981"
                     strokeWidth="18"
-                    strokeDasharray={seg.strokeDasharray}
-                    strokeDashoffset={seg.strokeDashoffset}
-                    transform="rotate(-90 90 90)"
+                    strokeDasharray={activeStrokeDash}
+                    strokeDashoffset={0}
+                    strokeLinecap="butt"
+                    transform="rotate(-90 85 85)"
                   />
-                ))}
-                <text x="90" y="85" textAnchor="middle" fill={t.heading} fontSize="26" fontWeight="750">
-                  {activeAvailability.toFixed(1)}%
-                </text>
-                <text x="90" y="105" textAnchor="middle" fill={t.muted} fontSize="9.5" fontWeight="600" letterSpacing="0.5px">
-                  AVAILABLE
-                </text>
+                )}
               </svg>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography sx={{ fontSize: 24, fontWeight: 850, color: '#0F172A', lineHeight: 1.1 }}>
+                  {activeAvailability.toFixed(1)}%
+                </Typography>
+                <Typography sx={{ fontSize: 9.5, fontWeight: 750, color: '#64748B', letterSpacing: '0.8px', mt: 0.5 }}>
+                  AVAILABLE
+                </Typography>
+              </Box>
             </Box>
           </Box>
 
-          {/* Unified Multi-Segment Bar */}
-          <Box
-            aria-hidden="true"
-            sx={{
-              height: 7,
-              display: 'flex',
-              borderRadius: 3.5,
-              overflow: 'hidden',
-              bgcolor: '#E9EFF6',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
-            }}
-          >
-            {categories.map((cat) => (
+          {/* Middle Column: Present & Absent */}
+          <Stack spacing={1.5} sx={{ width: '100%' }}>
+            {/* Present Card */}
+            <Box
+              sx={{
+                p: 1.75,
+                borderRadius: 2.75,
+                background: 'linear-gradient(135deg, #ECFDF5 0%, #E0FBEF 100%)',
+                border: '1.5px solid #A7F3D0',
+                boxShadow: '0 3px 12px rgba(16, 185, 129, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 5px 16px rgba(16, 185, 129, 0.14)',
+                },
+              }}
+            >
               <Box
-                key={cat.label}
                 sx={{
-                  width: workforceTotal > 0 ? `${(cat.count / workforceTotal) * 100}%` : '0%',
-                  bgcolor: cat.color,
-                  transition: 'width 0.4s ease',
+                  width: 42,
+                  height: 42,
+                  borderRadius: 2,
+                  bgcolor: '#FFFFFF',
+                  color: '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(5, 150, 105, 0.15)',
+                  flexShrink: 0,
                 }}
-                title={`${cat.label}: ${cat.count}`}
-              />
-            ))}
-          </Box>
+              >
+                <PersonIcon sx={{ fontSize: 22 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#047857', letterSpacing: '0.2px' }}>Present</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography sx={{ fontSize: 20, fontWeight: 850, color: '#065F46' }}>
+                    {number(present)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#059669' }}>
+                    ({calcPercent(present)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
 
-          {/* Analytical Category Breakdown Grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 1 }}>
-            {categories.map((cat) => {
-              const share = workforceTotal > 0 ? (cat.count / workforceTotal) * 100 : 0;
-              return (
-                <Box
-                  key={cat.label}
-                  sx={{
-                    p: 1.25,
-                    borderRadius: 2,
-                    bgcolor: '#FFFFFF',
-                    border: `1px solid ${t.border}`,
-                    borderLeft: `3.5px solid ${cat.color}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: t.heading }}>
-                      {cat.label}
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        bgcolor: cat.color,
-                      }}
-                    />
-                  </Stack>
-                  <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mt: 0.75 }}>
-                    <Typography sx={{ fontSize: 16, fontWeight: 750, color: cat.color }}>
-                      {number(cat.count)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 11, fontWeight: 600, color: t.muted }}>
-                      {share.toFixed(1)}%
-                    </Typography>
-                  </Stack>
-                </Box>
-              );
-            })}
-          </Box>
+            {/* Absent Card */}
+            <Box
+              sx={{
+                p: 1.75,
+                borderRadius: 2.75,
+                background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+                border: '1.5px solid #FECACA',
+                boxShadow: '0 3px 12px rgba(239, 68, 68, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 5px 16px rgba(239, 68, 68, 0.14)',
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 2,
+                  bgcolor: '#FFFFFF',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <PersonIcon sx={{ fontSize: 22 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#B91C1C', letterSpacing: '0.2px' }}>Absent</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography sx={{ fontSize: 20, fontWeight: 850, color: '#991B1B' }}>
+                    {number(absent)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#DC2626' }}>
+                    ({calcPercent(absent)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+          </Stack>
+
+          {/* Right Column: Comp-off, Paid Leave, Travel */}
+          <Stack spacing={1.25} sx={{ width: '100%' }}>
+            {/* Comp-off Card */}
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: 2.25,
+                background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                border: '1.5px solid #FDE68A',
+                boxShadow: '0 2px 8px rgba(217, 119, 6, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 1.75,
+                  bgcolor: '#FFFFFF',
+                  color: '#D97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(217, 119, 6, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <AccessTimeIcon sx={{ fontSize: 18 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#92400E' }}>Comp-off</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 850, color: '#78350F' }}>
+                    {number(compoff)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#B45309' }}>
+                    ({calcPercent(compoff)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+
+            {/* Paid Leave Card */}
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: 2.25,
+                background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+                border: '1.5px solid #BFDBFE',
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 1.75,
+                  bgcolor: '#FFFFFF',
+                  color: '#2563EB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(37, 99, 235, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <CalendarMonthIcon sx={{ fontSize: 18 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1E40AF' }}>Paid Leave</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 850, color: '#1E3A8A' }}>
+                    {number(paidLeave)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#2563EB' }}>
+                    ({calcPercent(paidLeave)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+
+            {/* Travel Card */}
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: 2.25,
+                background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+                border: '1.5px solid #E9D5FF',
+                boxShadow: '0 2px 8px rgba(147, 51, 234, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 4px 12px rgba(147, 51, 234, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 1.75,
+                  bgcolor: '#FFFFFF',
+                  color: '#9333EA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(147, 51, 234, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <FlightTakeoffIcon sx={{ fontSize: 18 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#6B21A8' }}>Travel</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 850, color: '#581C87' }}>
+                    {number(travel)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 650, color: '#7E22CE' }}>
+                    ({calcPercent(travel)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+          </Stack>
         </Box>
       </ChartState>
-    </>
+    </Box>
   );
 }
 
