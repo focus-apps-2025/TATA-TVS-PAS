@@ -1468,13 +1468,13 @@ const TeamReport: React.FC = () => {
             variant={activeAuditView === 'before' ? 'contained' : 'outlined'}
             onClick={() => setActiveAuditView('before')}
           >
-            Before Audit View
+            Before Audit
           </Button>
           <Button
             variant={activeAuditView === 'after' ? 'contained' : 'outlined'}
             onClick={() => setActiveAuditView('after')}
           >
-            After Audit View
+            After Audit
           </Button>
           {(activeAuditView || currentUserRole !== 'site_manager') && (
             <Button
