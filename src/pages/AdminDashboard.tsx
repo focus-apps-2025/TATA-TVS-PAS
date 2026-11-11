@@ -1,60 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import {
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography
-} from '@mui/material';
+import { Box, Button, Chip, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
-import BusinessIcon from '@mui/icons-material/Business';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
-import GroupsIcon from '@mui/icons-material/Groups';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import api from '../services/api';
 import type { Team } from '../services/api';
 import authManager from '../services/authSession';
-import { RankedChart, AttendanceChart, AuditStateComparison } from '../components/common/DashboardCharts';
-import { ChartState } from '../components/common/DashboardPrimitives';
+import { RankedChart, AttendanceChart, AuditStateComparison, ScanContributionChart } from '../components/common/DashboardCharts';
+import { ChartHeading, ChartState } from '../components/common/DashboardPrimitives';
 import { dashboardTokens as t } from '../components/common/dashboardTheme';
 
 interface DailyActivityTeam {
-  teamId: string;
-  teamName: string;
-  auditType: string;
-  location: string;
-  totalScans: number;
+  teamId: string; teamName: string; auditType: string; location: string; totalScans: number;
   members: { id: string; name: string; email: string; role: string; scanCount: number }[];
   createdAt?: string;
   auditStartDate?: string;
   status?: string;
 }
-
 type AuditRecord = {
-  state?: string;
-  quoteDate?: string;
-  startingDate?: string;
-  endDate?: string;
-  createdAt?: string;
-  month?: string;
-  [field: string]: unknown;
+  state?: string; quoteDate?: string; startingDate?: string; endDate?: string;
+  createdAt?: string; month?: string; [field: string]: unknown;
 };
-
 type AttendanceSummary = {
   totalStaff: number;
   present: number;
@@ -64,12 +31,10 @@ type AttendanceSummary = {
   travel?: number;
   notSet?: number;
 };
-
 type AttendanceResponse = { summary?: AttendanceSummary };
 type DataResponse<T> = { data?: T };
 type Range = { from: string; to: string };
 type Errors = Partial<Record<'activity' | 'attendance' | 'portfolio' | 'followups' | 'completions' | 'workspace', string>>;
-
 const currentIndiaDate = () => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -77,11 +42,12 @@ const currentIndiaDate = () => {
   const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 };
-
 const countAuditTypes = (records: Team[]) => {
   const grouped = records.reduce((counts: Record<string, number>, record) => {
     const auditType = String(record.auditType || '').trim();
     const subcategory = String(record.subcategory || '').trim();
+    // Keep the main audit type visible alongside any free-text category,
+    // for example "TATA · JBM" or "TVS · HONDA".
     const auditLabel = auditType === '3w-tvs' ? '3W TVS' : auditType || 'Not specified';
     const label = subcategory ? `${auditLabel} · ${subcategory}` : auditLabel;
     counts[label] = (counts[label] || 0) + 1;
@@ -92,7 +58,6 @@ const countAuditTypes = (records: Team[]) => {
     .map(([label, count]) => ({ label, count }))
     .sort((first, second) => first.label.localeCompare(second.label));
 };
-
 const parseDashboardDate = (value: unknown): string | null => {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -111,13 +76,13 @@ const parseDashboardDate = (value: unknown): string | null => {
   const match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   return match ? `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}` : null;
 };
-
 const isWithinDashboardRange = (record: Record<string, unknown>, from: string, to: string, fields: string[]) => {
   const date = fields.map((field) => parseDashboardDate(record?.[field])).find(Boolean);
   return Boolean(date && date >= from && date <= to);
 };
-
 const isCompletionInRange = (record: AuditRecord, from: string, to: string) => {
+  // Completions are saved in a month bucket; audit start/end dates may be
+  // outside that reporting month, so the bucket takes precedence.
   if (typeof record.month === 'string' && /^\d{4}-\d{2}$/.test(record.month)) {
     const month = record.month;
     return month >= from.slice(0, 7) && month <= to.slice(0, 7);
@@ -125,32 +90,23 @@ const isCompletionInRange = (record: AuditRecord, from: string, to: string) => {
   return isWithinDashboardRange(record, from, to, ['endDate', 'startingDate', 'createdAt']);
 };
 
+
 const shiftDay = (date: string, days: number) => {
   const value = new Date(date + 'T00:00:00Z');
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 };
-
 const previousRange = ({ from, to }: Range): Range => {
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
   return { from: shiftDay(from, -days), to: shiftDay(from, -1) };
 };
 
 const formatDate = (date: string) => new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const numberFormat = (value: number) => value.toLocaleString('en-IN');
-
-const getAuditTypeBadge = (type?: string) => {
-  const str = String(type || '').toUpperCase();
-  if (str.includes('TATA')) {
-    return { bg: '#FFF7ED', color: '#D35400', border: '#FED7AA' };
-  }
-  if (str.includes('3W')) {
-    return { bg: '#F0FDFA', color: '#0F766E', border: '#99F6E4' };
-  }
-  if (str.includes('TVS')) {
-    return { bg: '#EFF6FF', color: '#004F98', border: '#BFDBFE' };
-  }
-  return { bg: '#F8FAFC', color: '#475569', border: '#E2E8F0' };
+const availability = (summary: { present: number; absent: number; travel?: number; totalStaff?: number }) => {
+  const total = summary.totalStaff !== undefined && summary.totalStaff > 0
+    ? summary.totalStaff
+    : summary.present + summary.absent + (summary.travel || 0);
+  return total ? ((summary.present + (summary.travel || 0)) / total) * 100 : 0;
 };
 
 export default function AdminDashboard() {
@@ -173,7 +129,6 @@ export default function AdminDashboard() {
     masterItems: 0,
   });
   const [teamsByAuditType, setTeamsByAuditType] = useState<{ label: string; count: number }[]>([]);
-  const [allTeamsByAuditType, setAllTeamsByAuditType] = useState<{ label: string; count: number }[]>([]);
   const [followUpRecords, setFollowUpRecords] = useState<AuditRecord[]>([]);
   const [completionRecords, setCompletionRecords] = useState<AuditRecord[]>([]);
   const [dailyActivity, setDailyActivity] = useState<DailyActivityTeam[]>([]);
@@ -184,17 +139,12 @@ export default function AdminDashboard() {
   const [preset, setPreset] = useState('Today');
   const [customOpen, setCustomOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [previousStats, setPreviousStats] = useState<{ users: number; sites: number; currentSites: number; scans: number; activeTeams: number }>({
-    users: 0,
-    sites: 0,
-    currentSites: 0,
-    scans: 0,
-    activeTeams: 0
-  });
+  const [previous, setPrevious] = useState<(number | undefined)[]>([]);
   const [copyingDashboard, setCopyingDashboard] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState('');
   const teamsSectionRef = useRef<HTMLDivElement>(null);
   const [copyingTeams, setCopyingTeams] = useState(false);
+  const [copyingTeamId, setCopyingTeamId] = useState<string | null>(null);
   const [teamCopyFeedback, setTeamCopyFeedback] = useState('');
   const [teamSearch, setTeamSearch] = useState('');
   const [onlyActiveTeams, setOnlyActiveTeams] = useState(false);
@@ -202,9 +152,9 @@ export default function AdminDashboard() {
 
   const teamMetaMap = useMemo(() => {
     const map = new Map<string, Team>();
-    allTeams.forEach((team) => {
-      const id = String(team._id || team.id || '');
-      if (id) map.set(id, team);
+    allTeams.forEach((t) => {
+      const id = String(t._id || t.id || '');
+      if (id) map.set(id, t);
     });
     return map;
   }, [allTeams]);
@@ -243,13 +193,12 @@ export default function AdminDashboard() {
     const safe = async <T,>(key: keyof Errors, request: Promise<T>, fallback: T): Promise<T> => {
       try { return await request; } catch { failures[key] = 'The data request failed. Please retry.'; return fallback; }
     };
-
     try {
       const currentUser = await authManager.getCurrentUser();
       const siteManagerMode = currentUser?.role === 'site_manager';
       const { from, to } = range;
       const previousPeriod = previousRange(range);
-      const [users, teams, racks, masterData, followUps, completions, activity, attendance, priorActivity] = await Promise.all([
+      const [users, teams, racks, masterData, followUps, completions, activity, attendance, priorActivity, priorAttendance] = await Promise.all([
         siteManagerMode ? [] : safe('workspace', api.getAllUsers(), []),
         safe('portfolio', api.getTeams(), []),
         safe('workspace', api.getRacks({ limit: 1 }), { racks: [], totalCount: 0 }),
@@ -259,14 +208,12 @@ export default function AdminDashboard() {
         siteManagerMode ? { data: [] as DailyActivityTeam[] } : safe('activity', api.getDailyTeamActivity(from, to) as Promise<DataResponse<DailyActivityTeam[]>>, { data: [] }),
         siteManagerMode ? { summary: { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 } } : safe('attendance', api.getTeamAttendance({ from, to }) as Promise<AttendanceResponse>, { summary: { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 } }),
         siteManagerMode ? null : (api.getDailyTeamActivity(previousPeriod.from, previousPeriod.to) as Promise<DataResponse<DailyActivityTeam[]>>).catch(() => null),
+        siteManagerMode ? null : (api.getTeamAttendance(previousPeriod) as Promise<AttendanceResponse>).catch(() => null),
       ]);
-
       if (id !== requestId.current) return;
       setAllTeams(teams || []);
       const periodTeams = (teams || []).filter((team) => String(team.status || '').toLowerCase() !== 'archived');
-      const currentRangeTeams = periodTeams.filter((team) => isWithinDashboardRange(team, from, to, ['createdAt']));
       const summary = attendance.summary || { totalStaff: 0, present: 0, absent: 0, compoff: 0, paidLeave: 0, travel: 0, notSet: 0 };
-
       setStats({
         users: users?.length || 0,
         teams: periodTeams.length,
@@ -281,27 +228,22 @@ export default function AdminDashboard() {
         totalRacks: racks.totalCount || 0,
         masterItems: siteManagerMode ? 0 : masterData.data?.length || 0,
       });
-
-      setTeamsByAuditType(countAuditTypes(currentRangeTeams));
-      setAllTeamsByAuditType(countAuditTypes(periodTeams));
-
+      setTeamsByAuditType(countAuditTypes(periodTeams));
       const followFields = ['quoteDate', 'createdAt'];
       const follows = followUps.data || [];
       const completed = completions.data || [];
       setFollowUpRecords(follows.filter((record) => isWithinDashboardRange(record, from, to, followFields)));
       setCompletionRecords(completed.filter((record) => isCompletionInRange(record, from, to)));
       setDailyActivity(activity.data || []);
-
       const oldTeams = priorActivity?.data;
       const oldPeriodTeams = (teams || []).filter((team) => String(team.status || '').toLowerCase() !== 'archived');
-      setPreviousStats({
-        users: users?.length || 0,
-        sites: oldPeriodTeams.length,
-        currentSites: (teams || []).filter((team) => isWithinDashboardRange(team, previousPeriod.from, previousPeriod.to, ['createdAt'])).length,
-        scans: oldTeams?.reduce((sum, team) => sum + team.totalScans, 0) || 0,
-        activeTeams: oldTeams?.filter((team) => team.totalScans > 0).length || 0,
-      });
-
+      setPrevious([
+        users?.length, // Users count
+        oldPeriodTeams.length, // Active sites
+        (teams || []).filter((team) => isWithinDashboardRange(team, previousPeriod.from, previousPeriod.to, ['createdAt'])).length, // Current sites in prior period
+        oldTeams?.reduce((sum, team) => sum + team.totalScans, 0),
+        oldTeams?.filter((team) => team.totalScans > 0).length,
+      ]);
       setErrors(failures);
     } catch {
       if (id === requestId.current) setErrors(Object.fromEntries(['activity', 'attendance', 'portfolio', 'followups', 'completions', 'workspace'].map((key) => [key, 'Unable to load dashboard data. Please retry.'])));
@@ -309,7 +251,6 @@ export default function AdminDashboard() {
       if (id === requestId.current) setIsDataLoading(false);
     }
   }
-
   useEffect(() => {
     void loadDashboardData();
     const refresh = () => { void loadDashboardData(); };
@@ -317,13 +258,11 @@ export default function AdminDashboard() {
     window.addEventListener('admin-refresh', refresh);
     return () => { requests.current++; window.removeEventListener('admin-refresh', refresh); };
   }, []);
-
   useEffect(() => {
     if (!copyFeedback) return;
     const timeout = window.setTimeout(() => setCopyFeedback(''), 2000);
     return () => window.clearTimeout(timeout);
   }, [copyFeedback]);
-
   useEffect(() => {
     if (!teamCopyFeedback) return;
     const timeout = window.setTimeout(() => setTeamCopyFeedback(''), 2500);
@@ -338,27 +277,24 @@ export default function AdminDashboard() {
     setToDate(range.to);
     void loadDashboardData(range);
   }
-
   function selectPreset(label: string, days: number) {
     setPreset(label);
     setCustomOpen(false);
     const today = currentIndiaDate();
     applyRange({ from: shiftDay(today, -(days - 1)), to: today });
   }
-
   function changeDateRange() {
     setCustomOpen(true);
     setPreset('Custom');
     requestAnimationFrame(() => { dateInputRef.current?.focus(); dateInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   }
-
   async function copyDashboardImage() {
     if (!summaryCaptureRef.current || copyingDashboard) return;
     setCopyingDashboard(true);
     setCopyFeedback('');
     try {
       const canvas = await html2canvas(summaryCaptureRef.current, {
-        backgroundColor: '#F8FAFC', scale: 2, useCORS: true,
+        backgroundColor: t.background, scale: 2, useCORS: true,
         windowWidth: document.documentElement.clientWidth,
         windowHeight: Math.max(document.documentElement.clientHeight, summaryCaptureRef.current.scrollHeight),
         onclone: (document) => {
@@ -380,7 +316,7 @@ export default function AdminDashboard() {
     setTeamCopyFeedback('');
     try {
       const canvas = await html2canvas(teamsSectionRef.current, {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F8FAFD',
         scale: 2,
         useCORS: true,
         windowWidth: document.documentElement.clientWidth,
@@ -390,12 +326,16 @@ export default function AdminDashboard() {
             element.style.maxHeight = 'none';
             element.style.overflow = 'visible';
           });
+          document.querySelectorAll<HTMLElement>('.dashboard-chart-mark').forEach((element) => {
+            element.style.animation = 'none';
+            element.style.opacity = '1';
+          });
         },
       });
       const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image copy unavailable');
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
-      setTeamCopyFeedback('Teams leaderboard image copied to clipboard');
+      setTeamCopyFeedback('Teams section image copied to clipboard');
     } catch {
       setTeamCopyFeedback('Unable to copy teams image');
     } finally {
@@ -403,326 +343,83 @@ export default function AdminDashboard() {
     }
   }
 
+  async function copySingleTeamImage(teamId: string, teamName: string) {
+    const el = document.getElementById(`team-card-${teamId}`);
+    if (!el || copyingTeamId) return;
+    setCopyingTeamId(teamId);
+    setTeamCopyFeedback('');
+    try {
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#FFFFFF',
+        scale: 2,
+        useCORS: true,
+        onclone: (document) => {
+          const card = document.getElementById(`team-card-${teamId}`);
+          if (card) {
+            card.style.transform = 'none';
+            card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+          }
+        },
+      });
+      const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image copy unavailable');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      setTeamCopyFeedback(`"${teamName}" card copied`);
+    } catch {
+      setTeamCopyFeedback('Unable to copy card image');
+    } finally {
+      setCopyingTeamId(null);
+    }
+  }
   const shared = { loading: isDataLoading, onChangeRange: changeDateRange, onRetry: () => { void loadDashboardData(); } };
-  const totalScans = dailyActivity.reduce((sum, team) => sum + team.totalScans, 0);
-  const activeTeamsCount = dailyActivity.filter((team) => team.totalScans > 0).length;
+  const todayDate = currentIndiaDate();
+  const todayCreatedSites = (dailyActivity ? stats.currentSites : 0);
+  const activeSitesCount = stats.teams; // active non-archived sites/teams
 
-  // Percentage trend calculator
-  const calcTrend = (current: number, previous: number) => {
-    if (previous <= 0) return { pct: '+0.0%', isUp: true };
-    const diff = ((current - previous) / previous) * 100;
-    const isUp = diff >= 0;
-    return {
-      pct: `${isUp ? '+' : ''}${diff.toFixed(1)}%`,
-      isUp,
-    };
-  };
-
-  const statCards = [
-    {
-      label: 'Total Users',
-      value: stats.users,
-      trend: calcTrend(stats.users, previousStats.users),
-      icon: PeopleAltIcon,
-      iconColor: '#5B4EB7',
-      bg: '#EDE9FE',
-      border: '#DDD6FE',
-      circleBg: '#DDD6FE',
-    },
-    {
-      label: 'Active Sites',
-      value: stats.teams,
-      trend: calcTrend(stats.teams, previousStats.sites),
-      icon: BusinessIcon,
-      iconColor: '#0284C7',
-      bg: '#E0F2FE',
-      border: '#BAE6FD',
-      circleBg: '#BAE6FD',
-    },
-    {
-      label: 'Current Sites',
-      value: stats.currentSites,
-      trend: calcTrend(stats.currentSites, previousStats.currentSites),
-      icon: LocationOnIcon,
-      iconColor: '#059669',
-      bg: '#DCFCE7',
-      border: '#BBF7D0',
-      circleBg: '#BBF7D0',
-    },
-    {
-      label: 'Total Scans',
-      value: totalScans,
-      trend: calcTrend(totalScans, previousStats.scans),
-      icon: QrCodeScannerIcon,
-      iconColor: '#EA580C',
-      bg: '#FFEDD5',
-      border: '#FED7AA',
-      circleBg: '#FED7AA',
-    },
-    {
-      label: 'Teams Recorded Scans',
-      value: activeTeamsCount,
-      trend: calcTrend(activeTeamsCount, previousStats.activeTeams),
-      icon: GroupsIcon,
-      iconColor: '#7C3AED',
-      bg: '#F3E8FF',
-      border: '#E9D5FF',
-      circleBg: '#E9D5FF',
-    },
+  const metrics = [
+    { label: 'Total Users', value: stats.users, error: errors.workspace },
+    { label: 'Active Sites', value: activeSitesCount, error: errors.portfolio },
+    { label: 'Current Sites', value: stats.currentSites, caption: 'Created today', error: errors.portfolio },
+    { label: 'Total Scans', value: dailyActivity.reduce((sum, team) => sum + team.totalScans, 0), error: errors.activity },
+    { label: 'Teams Recorded Scans', value: dailyActivity.filter((team) => team.totalScans > 0).length, error: errors.activity },
   ];
-
-  return (
-    <Box
-      ref={summaryCaptureRef}
-      sx={{
-        minHeight: '100%',
-        bgcolor: '#F8FAFC',
-        color: '#0F172A',
-        p: { xs: 2.5, md: 4 },
-        fontFamily: 'Inter, system-ui, sans-serif',
-      }}
-    >
-      {/* Top Header - Ultra-Slim Compact Card */}
-      <Box
-        sx={{
-          bgcolor: '#FFFFFF',
-          px: { xs: 2, md: 3 },
-          py: 1.5,
-          borderRadius: 3,
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-          mb: 2.5,
-        }}
-      >
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} gap={1.5}>
-          {/* Left: Compact Title & Subtitle inline */}
-          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            <Typography component="h1" sx={{ fontSize: { xs: 18, md: 20 }, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-              Parts Audit Summary
-            </Typography>
-            <Typography sx={{ fontSize: 11.5, color: '#64748B', mt: 0.25 }}>
-              Executive overview of sites, workforce availability, and scan activities
-            </Typography>
-          </Box>
-
-          {/* Right: Pill Controls Cluster */}
-          <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
-            {/* Date Range Selector Pill */}
-            <Chip
-              icon={<CalendarMonthIcon sx={{ fontSize: 15, color: '#475569' }} />}
-              label={`${formatDate(appliedRange.from)} – ${formatDate(appliedRange.to)}`}
-              onClick={changeDateRange}
-              variant="outlined"
-              sx={{
-                bgcolor: '#F8FAFC',
-                borderColor: '#E2E8F0',
-                color: '#334155',
-                fontSize: 12,
-                fontWeight: 650,
-                height: 32,
-                borderRadius: '999px',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                '&:hover': { bgcolor: '#F1F5F9', borderColor: '#CBD5E1' },
-              }}
-            />
-
-            {/* Segmented Preset Switch Pill */}
-            <Stack direction="row" sx={{ bgcolor: '#F1F5F9', borderRadius: '999px', p: 0.35, border: '1px solid #E2E8F0' }}>
-              {['Today', '7D', '30D', 'Custom'].map((label, i) => {
-                const isActive = preset === label;
-                return (
-                  <Button
-                    key={label}
-                    size="small"
-                    aria-pressed={isActive}
-                    onClick={() => (label === 'Custom' ? changeDateRange() : selectPreset(label, [1, 7, 30][i]))}
-                    sx={{
-                      minWidth: 46,
-                      height: 26,
-                      fontSize: 11.5,
-                      fontWeight: isActive ? 750 : 550,
-                      bgcolor: isActive ? '#004F98' : 'transparent',
-                      color: isActive ? '#FFFFFF' : '#64748B',
-                      boxShadow: isActive ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
-                      borderRadius: '999px',
-                      textTransform: 'none',
-                      px: 1.25,
-                      '&:hover': {
-                        bgcolor: isActive ? '#004F98' : 'rgba(0,0,0,0.04)',
-                      },
-                    }}
-                  >
-                    {label}
-                  </Button>
-                );
-              })}
-            </Stack>
-
-            {/* Copy Button */}
-            <Button
-              variant="contained"
-              disableElevation
-              size="small"
-              onClick={copyDashboardImage}
-              disabled={copyingDashboard || isDataLoading}
-              startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                bgcolor: '#004F98',
-                height: 32,
-                px: 1.75,
-                borderRadius: '999px',
-                textTransform: 'none',
-                fontWeight: 650,
-                fontSize: 12,
-                '&:hover': { bgcolor: '#003B73' },
-              }}
-            >
-              {copyingDashboard ? 'Copying…' : 'Copy image'}
-            </Button>
-          </Stack>
+  return <Box ref={summaryCaptureRef} sx={{
+    minHeight: '100%', bgcolor: t.background, color: t.text, p: { xs: 2, lg: 3 },
+    fontFamily: 'Inter, Arial, sans-serif', fontStyle: 'normal', fontVariantNumeric: 'tabular-nums',
+    '& *, & .MuiTypography-root, & input, & button': { fontStyle: 'normal', fontFamily: 'inherit' },
+    '& button': { textTransform: 'none' }, '& svg text': { fontFamily: 'Inter, Arial, sans-serif' },
+    '& .dashboard-chart-mark': { animation: 'dashboardReveal 400ms ease both' },
+    '@keyframes dashboardReveal': { from: { opacity: 0 }, to: { opacity: 1 } },
+    '@media (prefers-reduced-motion: reduce)': { '& *, & .dashboard-chart-mark': { animation: 'none', transition: 'none' } },
+  }}>
+    <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'center' }} gap={2} sx={{ mb: 2 }}>
+      <Box><Typography component="h1" sx={{ fontSize: { xs: 23, md: 27 }, fontWeight: 750, letterSpacing: '-.6px', color: t.heading }}>Parts Audit Summary</Typography></Box>
+      <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
+        <Chip icon={<CalendarMonthIcon />} label={formatDate(appliedRange.from) + ' – ' + formatDate(appliedRange.to)} onClick={changeDateRange} variant="outlined" sx={{ bgcolor: t.surface, borderColor: t.border, fontSize: 12 }} />
+        <Stack data-html2canvas-ignore="true" direction="row" sx={{ bgcolor: '#E9EFF7', borderRadius: 2, p: .5 }}>
+          {['Today', '7D', '30D', 'Custom'].map((label, i) => <Button key={label} size="small" aria-pressed={preset === label} onClick={() => label === 'Custom' ? changeDateRange() : selectPreset(label, [1, 7, 30][i])} sx={{ minWidth: 48, fontSize: 12, bgcolor: preset === label ? t.surface : 'transparent', color: preset === label ? t.primary : t.muted }}>{label}</Button>)}
         </Stack>
-
-        {customOpen && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems="center" sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #F1F5F9' }}>
-            <TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ '& .MuiInputBase-input': { py: 0.6, fontSize: 12 } }} />
-            <TextField label="To" type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} sx={{ '& .MuiInputBase-input': { py: 0.6, fontSize: 12 } }} />
-            <Button variant="contained" size="small" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }} sx={{ textTransform: 'none', borderRadius: '999px', px: 2, height: 32, fontSize: 12 }}>
-              Apply range
-            </Button>
+        <Button data-html2canvas-ignore="true" variant="contained" disableElevation size="small" onClick={copyDashboardImage} disabled={copyingDashboard || isDataLoading} startIcon={<ContentCopyIcon />} sx={{ bgcolor: t.primary, py: 1, borderRadius: 2 }}>{copyingDashboard ? 'Copying…' : 'Copy image'}</Button>
+      </Stack>
+    </Stack>
+    {customOpen && <Stack data-html2canvas-ignore="true" direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ mb: 2 }}><TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} /><TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} /><Button variant="contained" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }}>Apply range</Button></Stack>}
+    {copyFeedback && <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 12, mb: 1, color: copyFeedback.startsWith('Unable') ? t.danger : t.success }}>{copyFeedback}</Typography>}
+    <Box sx={{ bgcolor: t.surface, border: `1px solid ${t.border}`, borderRadius: 4, boxShadow: t.shadow, overflow: 'hidden' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, borderBottom: `1px solid ${t.border}` }}>
+        {metrics.map((metric, i) => <Box key={metric.label} component="section" sx={{ px: { xs: 2, md: 2.5 }, py: 2, minWidth: 0, borderRight: { xs: i % 2 === 0 ? `1px solid ${t.border}` : 'none', lg: i < 4 ? `1px solid ${t.border}` : 'none' }, borderBottom: { xs: i < 4 ? `1px solid ${t.border}` : 'none', lg: 'none' } }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography sx={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '.18px', textTransform: 'uppercase' }}>{metric.label}</Typography>
+            {metric.caption && <Typography sx={{ fontSize: 10, color: t.primary, fontWeight: 650, bgcolor: '#EEF4FF', px: 0.75, py: 0.15, borderRadius: 1 }}>{metric.caption}</Typography>}
           </Stack>
-        )}
-
-        {copyFeedback && (
-          <Typography role="status" sx={{ fontSize: 11.5, mt: 1, color: copyFeedback.startsWith('Unable') ? '#EF4444' : '#10B981', fontWeight: 650 }}>
-            {copyFeedback}
-          </Typography>
-        )}
+          {isDataLoading ? <Box sx={{ height: 36, width: '55%', bgcolor: '#E8EFF8', borderRadius: 1.5, mt: 1 }} /> : metric.error ? <Typography sx={{ mt: 1, fontSize: 12, color: t.danger }}>Unavailable</Typography> : <Typography sx={{ mt: .5, fontSize: { xs: 24, md: 29 }, lineHeight: 1.1, fontWeight: 780, letterSpacing: '-1px', color: metric.value ? t.heading : t.muted }}>{numberFormat(metric.value)}</Typography>}
+        </Box>)}
       </Box>
 
-      {/* 5 Compact Horizontal Stat Cards - Matching Image 2 */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
-          gap: 2,
-          mb: 3.5,
-        }}
-      >
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Box
-              key={card.label}
-              sx={{
-                bgcolor: card.bg,
-                borderRadius: 3.5,
-                p: '14px 18px',
-                border: `1px solid ${card.border}`,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.75,
-                minHeight: 76,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 16px rgba(0,0,0,0.06)',
-                },
-              }}
-            >
-              {/* Circular Icon with Matching Filled Tint */}
-              <Box
-                sx={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: '50%',
-                  bgcolor: card.circleBg,
-                  color: card.iconColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Icon sx={{ fontSize: 26 }} />
-              </Box>
-
-              {/* Text content: Title above, Value + Trend below */}
-              <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: '#1E293B',
-                    lineHeight: 1.2,
-                    mb: 0.35,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {card.label}
-                </Typography>
-
-                <Stack direction="row" alignItems="baseline" spacing={1}>
-                  <Typography
-                    sx={{
-                      fontSize: 22,
-                      fontWeight: 800,
-                      color: '#0F172A',
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {isDataLoading ? '—' : numberFormat(card.value)}
-                  </Typography>
-
-                  <Stack direction="row" alignItems="center" spacing={0.25}>
-                    <Typography
-                      sx={{
-                        fontSize: 11,
-                        fontWeight: 750,
-                        color: card.trend.isUp ? '#059669' : '#DC2626',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 0.25,
-                      }}
-                    >
-                      {card.trend.isUp ? '▲' : '▼'} {card.trend.pct}
-                    </Typography>
-                  </Stack>
-                </Stack>
-              </Box>
-            </Box>
-          );
-        })}
-      </Box>
-
-      {/* 2 Main Charts Row (Audit Type Distribution + Attendance) */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3, mb: 3.5 }}>
-        {/* Left Chart: Audit Type Distribution (Vertical Column Chart) */}
-        <Box
-          sx={{
-            bgcolor: '#FFFFFF',
-            borderRadius: 4,
-            p: { xs: 2.5, md: 3.5 },
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-          }}
-        >
-          <RankedChart items={teamsByAuditType} allItems={allTeamsByAuditType} {...shared} error={errors.portfolio} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
+        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}` }}>
+          <RankedChart items={teamsByAuditType} {...shared} error={errors.portfolio} />
         </Box>
-
-        {/* Right Chart: Attendance & Workforce Availability (Requested Donut + Cards Layout) */}
-        <Box
-          sx={{
-            bgcolor: '#FFFFFF',
-            borderRadius: 4,
-            p: { xs: 2.5, md: 3.5 },
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-          }}
-        >
+        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}`, borderLeft: { lg: `1px solid ${t.border}` } }}>
           <AttendanceChart
             present={stats.presentStaff}
             absent={stats.absentStaff}
@@ -735,246 +432,307 @@ export default function AdminDashboard() {
             error={errors.attendance}
           />
         </Box>
-      </Box>
-
-      {/* Teams Leaderboard Section - Spacious & Detailed Table */}
-      <Box
-        ref={teamsSectionRef}
-        sx={{
-          bgcolor: '#FFFFFF',
-          borderRadius: 4,
-          p: { xs: 2.5, md: 3.5 },
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-          mb: 3.5,
-        }}
-      >
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={2} sx={{ mb: 3 }}>
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Typography sx={{ fontSize: { xs: 18, md: 20 }, fontWeight: 800, color: '#0F172A' }}>
-                Teams Leaderboard
-              </Typography>
-              <Chip
-                label={`${visibleTeams.length} ${visibleTeams.length === 1 ? 'team' : 'teams'}`}
+        <Box ref={teamsSectionRef} component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 2.5 }, borderBottom: `1px solid ${t.border}`, bgcolor: '#F8FAFD' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
+                  Current Teams & User Activity
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${visibleTeams.length} ${visibleTeams.length === 1 ? 'team' : 'teams'}`}
+                  sx={{ fontSize: 11, fontWeight: 650, height: 22, bgcolor: '#E2E8F0', color: '#334155' }}
+                />
+              </Stack>
+              {teamCopyFeedback && (
+                <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mt: 0.5, color: teamCopyFeedback.startsWith('Unable') ? t.danger : t.success, fontWeight: 650 }}>
+                  {teamCopyFeedback}
+                </Typography>
+              )}
+            </Box>
+            <Stack data-html2canvas-ignore="true" direction="row" spacing={1} alignItems="center">
+              <TextField
                 size="small"
-                sx={{ fontSize: 12, fontWeight: 750, bgcolor: '#EFF6FF', color: '#1D4ED8', height: 26 }}
+                placeholder="Search team or site…"
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                sx={{
+                  width: { xs: '100%', sm: 220 },
+                  bgcolor: '#FFFFFF',
+                  borderRadius: 1,
+                  '& .MuiInputBase-input': { fontSize: 12, py: 0.65, px: 1 },
+                }}
               />
+              <Button
+                size="small"
+                variant={onlyActiveTeams ? 'contained' : 'outlined'}
+                onClick={() => setOnlyActiveTeams(!onlyActiveTeams)}
+                sx={{ fontSize: 11.5, py: 0.6, whiteSpace: 'nowrap' }}
+              >
+                {onlyActiveTeams ? 'Active only' : 'All teams'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={copyTeamsSectionImage}
+                disabled={copyingTeams || isDataLoading || visibleTeams.length === 0}
+                startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
+                sx={{
+                  fontSize: 11.5,
+                  py: 0.6,
+                  px: 1.25,
+                  whiteSpace: 'nowrap',
+                  bgcolor: '#FFFFFF',
+                  borderColor: '#CBD5E1',
+                  color: '#1E293B',
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: '#F8FAFC', borderColor: '#94A3B8' },
+                }}
+              >
+                {copyingTeams ? 'Copying…' : 'Copy image'}
+              </Button>
             </Stack>
-            <Typography sx={{ fontSize: 12.5, color: '#64748B', mt: 0.5 }}>
-              Current teams, assigned workforce members, and live scan contributions
-            </Typography>
-          </Box>
-
-          <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
-            <TextField
-              size="small"
-              placeholder="Search team, site or member…"
-              value={teamSearch}
-              onChange={(e) => setTeamSearch(e.target.value)}
-              sx={{
-                width: { xs: '100%', sm: 250 },
-                bgcolor: '#F8FAFC',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' },
-                '& .MuiInputBase-input': { fontSize: 13, py: 0.85, px: 1.5 },
-              }}
-            />
-            <Button
-              size="small"
-              variant={onlyActiveTeams ? 'contained' : 'outlined'}
-              onClick={() => setOnlyActiveTeams(!onlyActiveTeams)}
-              sx={{
-                fontSize: 12,
-                py: 0.8,
-                px: 1.5,
-                textTransform: 'none',
-                fontWeight: 650,
-                borderRadius: 2,
-                borderColor: '#CBD5E1',
-                bgcolor: onlyActiveTeams ? '#004F98' : 'transparent',
-              }}
-            >
-              {onlyActiveTeams ? 'Active only' : 'All teams'}
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={copyTeamsSectionImage}
-              disabled={copyingTeams || isDataLoading || visibleTeams.length === 0}
-              startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                fontSize: 12,
-                py: 0.8,
-                px: 1.75,
-                textTransform: 'none',
-                fontWeight: 650,
-                borderColor: '#CBD5E1',
-                color: '#334155',
-                bgcolor: '#FFFFFF',
-                borderRadius: 2,
-                '&:hover': { bgcolor: '#F8FAFC', borderColor: '#94A3B8' },
-              }}
-            >
-              {copyingTeams ? 'Copying…' : 'Copy leaderboard'}
-            </Button>
           </Stack>
-        </Stack>
 
-        {teamCopyFeedback && (
-          <Typography role="status" sx={{ fontSize: 12, mb: 1.5, color: teamCopyFeedback.startsWith('Unable') ? '#EF4444' : '#10B981', fontWeight: 650 }}>
-            {teamCopyFeedback}
-          </Typography>
-        )}
-
-        <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
-          <TableContainer sx={{ border: '1px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
-            <Table sx={{ minWidth: 750 }}>
-              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
-                <TableRow>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75, width: 45 }}>#</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75 }}>Team &amp; Site</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75 }}>Location</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75, textAlign: 'center' }}>Audit Type</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75, textAlign: 'right' }}>Total Scans</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75 }}>Workforce Activity</TableCell>
-                  <TableCell sx={{ fontSize: 12, fontWeight: 750, color: '#475569', py: 1.75, textAlign: 'center' }}>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleTeams.map((team, idx) => {
-                  const badge = getAuditTypeBadge(team.auditType);
-                  const isCompleted = String(team.status || '').toLowerCase() === 'completed';
-                  return (
-                    <TableRow
-                      key={team.teamId}
-                      sx={{
-                        bgcolor: idx % 2 === 0 ? '#FFFFFF' : '#FAFCFF',
-                        transition: 'background-color 0.15s',
-                        '&:hover': { bgcolor: '#F1F5F9' },
-                      }}
-                    >
-                      {/* Row Index */}
-                      <TableCell sx={{ fontSize: 12.5, fontWeight: 700, color: '#94A3B8', py: 2 }}>
-                        {idx + 1}
-                      </TableCell>
-
-                      {/* Team Name */}
-                      <TableCell sx={{ py: 2 }}>
-                        <Typography sx={{ fontSize: 14, fontWeight: 750, color: '#0F172A' }}>
-                          {team.teamName}
-                        </Typography>
-                      </TableCell>
-
-                      {/* Location */}
-                      <TableCell sx={{ py: 2 }}>
-                        <Typography sx={{ fontSize: 12.5, color: '#64748B' }}>
-                          {team.location || '—'}
-                        </Typography>
-                      </TableCell>
-
-                      {/* Audit Type Badge */}
-                      <TableCell sx={{ py: 2, textAlign: 'center' }}>
-                        <Chip
-                          label={team.auditType || 'Audit'}
-                          size="small"
-                          sx={{
-                            bgcolor: badge.bg,
-                            color: badge.color,
-                            border: `1px solid ${badge.border}`,
-                            fontWeight: 750,
-                            fontSize: 11,
-                            borderRadius: '999px',
-                            height: 24,
-                          }}
-                        />
-                      </TableCell>
-
-                      {/* Total Scans */}
-                      <TableCell sx={{ py: 2, textAlign: 'right' }}>
-                        <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: team.totalScans > 0 ? '#2563EB' : '#94A3B8' }} />
-                          <Typography sx={{ fontSize: 14, fontWeight: 800, color: team.totalScans > 0 ? '#1D4ED8' : '#64748B' }}>
-                            {numberFormat(team.totalScans)}
+          <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
+            {(() => {
+              const count = visibleTeams.length;
+              // Dynamic column count based on team count:
+              // 1 to 4 items  -> display all in 1 row (columns = count)
+              // 5 to 6 items  -> 3 columns (3 x 2)
+              // 7 or more     -> 4 columns (4 x 2, 4 x 3, etc.)
+              const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
+              return (
+                <Box
+                  data-teams-scroll="true"
+                  sx={{
+                    maxHeight: 440,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    pr: 0.5,
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: count === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                      md: `repeat(${cols}, minmax(0, 1fr))`,
+                    },
+                    gap: 1.5,
+                  }}
+                >
+              {visibleTeams.map((team) => {
+                const typeStyle = getAuditTypeColor(team.auditType);
+                const hasScans = team.totalScans > 0;
+                return (
+                  <Box
+                    key={team.teamId}
+                    id={`team-card-${team.teamId}`}
+                    sx={{
+                      bgcolor: '#FFFFFF',
+                      borderRadius: 2.25,
+                      border: `1.5px solid ${hasScans ? '#93C5FD' : '#E2E8F0'}`,
+                      borderTop: `4px solid ${typeStyle.bar}`,
+                      background: hasScans ? 'linear-gradient(180deg, #F8FAFD 0%, #FFFFFF 52px)' : '#FFFFFF',
+                      boxShadow: hasScans ? '0 3px 10px rgba(37, 99, 235, 0.07)' : '0 1px 3px rgba(0,0,0,0.03)',
+                      p: 1.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
+                        borderColor: typeStyle.bar,
+                      },
+                    }}
+                  >
+                    {/* Team Header */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1, minWidth: 0 }}>
+                      <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0, mb: 0.35 }}>
+                          <Typography
+                            sx={{
+                              fontSize: 14,
+                              fontWeight: 800,
+                              color: '#0F172A',
+                              lineHeight: 1.25,
+                            }}
+                            noWrap
+                            title={team.teamName}
+                          >
+                            {team.teamName}
                           </Typography>
+                          <Box
+                            sx={{
+                              px: 0.75,
+                              py: 0.15,
+                              borderRadius: 1,
+                              fontSize: 9.5,
+                              fontWeight: 800,
+                              letterSpacing: '0.3px',
+                              bgcolor: typeStyle.bg,
+                              color: typeStyle.color,
+                              border: `1px solid ${typeStyle.border}`,
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {team.auditType}
+                          </Box>
                         </Stack>
-                      </TableCell>
-
-                      {/* Workforce Members Activity */}
-                      <TableCell sx={{ py: 2 }}>
-                        {team.members.length === 0 ? (
-                          <Typography sx={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>
-                            No assigned members
-                          </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: 10.5,
+                            color: '#64748B',
+                          }}
+                          noWrap
+                          title={team.location || ''}
+                        >
+                          {team.location || 'No location specified'}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" alignItems="center" spacing={0.5} flexShrink={0}>
+                        {hasScans ? (
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.3,
+                              borderRadius: '12px',
+                              bgcolor: '#EFF6FF',
+                              color: '#1D4ED8',
+                              border: '1.5px solid #93C5FD',
+                              fontSize: 11,
+                              fontWeight: 850,
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#2563EB' }} />
+                            {numberFormat(team.totalScans)} scans
+                          </Box>
                         ) : (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                            {team.members.map((member) => (
-                              <Tooltip key={member.id} title={`${member.name} (${member.role}): ${member.scanCount} scans`}>
-                                <Box
-                                  sx={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 0.6,
-                                    px: 1,
-                                    py: 0.35,
-                                    borderRadius: '12px',
-                                    bgcolor: member.scanCount > 0 ? '#ECFDF5' : '#F1F5F9',
-                                    border: `1px solid ${member.scanCount > 0 ? '#A7F3D0' : '#E2E8F0'}`,
-                                  }}
-                                >
-                                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: member.scanCount > 0 ? '#10B981' : '#94A3B8' }} />
-                                  <Typography sx={{ fontSize: 11.5, fontWeight: member.scanCount > 0 ? 700 : 550, color: member.scanCount > 0 ? '#065F46' : '#475569' }}>
-                                    {member.name}
-                                  </Typography>
-                                  {member.scanCount > 0 && (
-                                    <Box sx={{ px: 0.6, py: 0.05, borderRadius: '6px', bgcolor: '#059669', color: '#FFFFFF', fontSize: 10, fontWeight: 800 }}>
-                                      {member.scanCount}
-                                    </Box>
-                                  )}
-                                </Box>
-                              </Tooltip>
-                            ))}
+                          <Box
+                            sx={{
+                              px: 0.9,
+                              py: 0.25,
+                              borderRadius: '12px',
+                              bgcolor: '#F1F5F9',
+                              color: '#64748B',
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            0 scans
                           </Box>
                         )}
-                      </TableCell>
+                        <Tooltip title="Copy team card as image">
+                          <IconButton
+                            data-html2canvas-ignore="true"
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void copySingleTeamImage(team.teamId, team.teamName);
+                            }}
+                            disabled={copyingTeamId === team.teamId}
+                            sx={{
+                              p: 0.35,
+                              color: '#64748B',
+                              '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
+                            }}
+                          >
+                            <ContentCopyIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Box>
 
-                      {/* Status */}
-                      <TableCell sx={{ py: 2, textAlign: 'center' }}>
-                        <Chip
-                          label={isCompleted ? 'Completed' : 'Active'}
-                          size="small"
-                          sx={{
-                            bgcolor: isCompleted ? '#F1F5F9' : '#ECFDF5',
-                            color: isCompleted ? '#64748B' : '#059669',
-                            border: `1px solid ${isCompleted ? '#CBD5E1' : '#A7F3D0'}`,
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            borderRadius: '999px',
-                            height: 24,
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </ChartState>
-      </Box>
-
-      {/* Audit State Comparison Section */}
-      <Box
-        sx={{
-          bgcolor: '#FFFFFF',
-          borderRadius: 4,
-          p: { xs: 2.5, md: 3.5 },
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-        }}
-      >
-        <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
+                    {/* User Activity Section */}
+                    <Box sx={{ pt: 0.85, borderTop: '1px solid #F1F5F9', minHeight: 46 }}>
+                      <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.65 }}>
+                        USER ACTIVITY
+                      </Typography>
+                      {team.members.length === 0 ? (
+                        <Typography sx={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', py: 0.25 }}>
+                          No assigned members
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                          {team.members.map((member) => (
+                            <Box
+                              key={member.id}
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: member.scanCount > 0 ? 0.9 : 0.85,
+                                py: 0.3,
+                                borderRadius: '14px',
+                                border: `1.5px solid ${member.scanCount > 0 ? '#059669' : '#CBD5E1'}`,
+                                bgcolor: member.scanCount > 0 ? '#ECFDF5' : '#F8FAFC',
+                                boxShadow: member.scanCount > 0 ? '0 1px 3px rgba(5, 150, 105, 0.12)' : 'none',
+                              }}
+                            >
+                              <PersonIcon sx={{ fontSize: 13, color: member.scanCount > 0 ? '#059669' : '#64748B' }} />
+                              <Typography sx={{ fontSize: 11, fontWeight: member.scanCount > 0 ? 750 : 650, color: member.scanCount > 0 ? '#065F46' : '#1E293B' }}>
+                                {member.name}
+                              </Typography>
+                              {member.scanCount > 0 ? (
+                                <Box
+                                  sx={{
+                                    px: 0.55,
+                                    py: 0.05,
+                                    borderRadius: '8px',
+                                    bgcolor: '#059669',
+                                    color: '#FFFFFF',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {member.scanCount}
+                                </Box>
+                              ) : (
+                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94A3B8' }}>
+                                  : 0
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          );
+        })()}
+            </ChartState>
+        </Box>
+        <Box component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 3 } }}>
+          <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
+        </Box>
       </Box>
     </Box>
-  );
+  </Box>;
 }
+const numberFormat = (value: number) => value.toLocaleString('en-IN');
+
+const getAuditTypeColor = (type?: string) => {
+  const str = String(type || '').toUpperCase();
+  if (str.includes('TATA')) {
+    return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', bar: '#2563EB' };
+  }
+  if (str.includes('3W')) {
+    return { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', bar: '#EA580C' };
+  }
+  if (str.includes('TVS')) {
+    return { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0', bar: '#059669' };
+  }
+  return { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE', bar: '#7C3AED' };
+};
