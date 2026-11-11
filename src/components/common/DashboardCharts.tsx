@@ -125,10 +125,8 @@ export function AttendanceChart({
             gridTemplateColumns: { xs: '1fr', sm: '170px 1fr 1fr' },
             gap: { xs: 2, md: 2.5 },
             alignItems: 'center',
-            p: { xs: 1.5, md: 2 },
-            bgcolor: '#FFFFFF',
-            borderRadius: 3,
-            minHeight: 210,
+            pt: 1,
+            minHeight: 190,
           }}
         >
           {/* Left: Donut with availability percentage */}

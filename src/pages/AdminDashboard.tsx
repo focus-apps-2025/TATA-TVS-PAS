@@ -9,6 +9,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import GroupsIcon from '@mui/icons-material/Groups';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import api from '../services/api';
 import type { Team } from '../services/api';
 import authManager from '../services/authSession';
@@ -458,18 +459,141 @@ export default function AdminDashboard() {
     '@keyframes dashboardReveal': { from: { opacity: 0 }, to: { opacity: 1 } },
     '@media (prefers-reduced-motion: reduce)': { '& *, & .dashboard-chart-mark': { animation: 'none', transition: 'none' } },
   }}>
-    <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'center' }} gap={2} sx={{ mb: 2.5 }}>
-      <Box><Typography component="h1" sx={{ fontSize: { xs: 23, md: 27 }, fontWeight: 750, letterSpacing: '-.6px', color: t.heading }}>Parts Audit Summary</Typography></Box>
-      <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
-        <Chip icon={<CalendarMonthIcon />} label={formatDate(appliedRange.from) + ' – ' + formatDate(appliedRange.to)} onClick={changeDateRange} variant="outlined" sx={{ bgcolor: t.surface, borderColor: t.border, fontSize: 12 }} />
-        <Stack data-html2canvas-ignore="true" direction="row" sx={{ bgcolor: '#E9EFF7', borderRadius: 2, p: .5 }}>
-          {['Today', '7D', '30D', 'Custom'].map((label, i) => <Button key={label} size="small" aria-pressed={preset === label} onClick={() => label === 'Custom' ? changeDateRange() : selectPreset(label, [1, 7, 30][i])} sx={{ minWidth: 48, fontSize: 12, bgcolor: preset === label ? t.surface : 'transparent', color: preset === label ? t.primary : t.muted }}>{label}</Button>)}
+    {/* Top Header - Concept A: Modern White Card */}
+    <Box
+      sx={{
+        bgcolor: '#FFFFFF',
+        px: { xs: 2, md: 2.75 },
+        py: 1.5,
+        borderRadius: 3.5,
+        border: '1px solid #E2E8F0',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+        mb: 2.5,
+      }}
+    >
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} gap={1.5}>
+        {/* Left: Icon Badge + Title & Subtitle */}
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2.5,
+              bgcolor: '#EFF6FF',
+              color: '#004F98',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,79,152,0.12)',
+              flexShrink: 0,
+            }}
+          >
+            <AssessmentIcon sx={{ fontSize: 24 }} />
+          </Box>
+          <Box>
+            <Typography component="h1" sx={{ fontSize: { xs: 18, md: 20 }, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+              Parts Audit Summary
+            </Typography>
+            <Typography sx={{ fontSize: 11.5, color: '#64748B', mt: 0.25 }}>
+              Executive overview of sites, workforce availability, and scan activities
+            </Typography>
+          </Box>
         </Stack>
-        <Button data-html2canvas-ignore="true" variant="contained" disableElevation size="small" onClick={copyDashboardImage} disabled={copyingDashboard || isDataLoading} startIcon={<ContentCopyIcon />} sx={{ bgcolor: t.primary, py: 1, borderRadius: 2 }}>{copyingDashboard ? 'Copying…' : 'Copy image'}</Button>
+
+        {/* Right: Pill Controls Cluster */}
+        <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
+          {/* Date Range Selector Pill */}
+          <Chip
+            icon={<CalendarMonthIcon sx={{ fontSize: 15, color: '#475569' }} />}
+            label={`${formatDate(appliedRange.from)} – ${formatDate(appliedRange.to)}`}
+            onClick={changeDateRange}
+            variant="outlined"
+            sx={{
+              bgcolor: '#F8FAFC',
+              borderColor: '#E2E8F0',
+              color: '#334155',
+              fontSize: 12,
+              fontWeight: 650,
+              height: 34,
+              borderRadius: '999px',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              '&:hover': { bgcolor: '#F1F5F9', borderColor: '#CBD5E1' },
+            }}
+          />
+
+          {/* Segmented Preset Switch Pill */}
+          <Stack direction="row" sx={{ bgcolor: '#F1F5F9', borderRadius: '999px', p: 0.35, border: '1px solid #E2E8F0' }}>
+            {['Today', '7D', '30D', 'Custom'].map((label, i) => {
+              const isActive = preset === label;
+              return (
+                <Button
+                  key={label}
+                  size="small"
+                  aria-pressed={isActive}
+                  onClick={() => (label === 'Custom' ? changeDateRange() : selectPreset(label, [1, 7, 30][i]))}
+                  sx={{
+                    minWidth: 46,
+                    height: 28,
+                    fontSize: 11.5,
+                    fontWeight: isActive ? 750 : 550,
+                    bgcolor: isActive ? '#004F98' : 'transparent',
+                    color: isActive ? '#FFFFFF' : '#64748B',
+                    boxShadow: isActive ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
+                    borderRadius: '999px',
+                    textTransform: 'none',
+                    px: 1.25,
+                    '&:hover': {
+                      bgcolor: isActive ? '#004F98' : 'rgba(0,0,0,0.04)',
+                    },
+                  }}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </Stack>
+
+          {/* Copy Button */}
+          <Button
+            variant="contained"
+            disableElevation
+            size="small"
+            onClick={copyDashboardImage}
+            disabled={copyingDashboard || isDataLoading}
+            startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+            sx={{
+              bgcolor: '#004F98',
+              height: 34,
+              px: 2,
+              borderRadius: '999px',
+              textTransform: 'none',
+              fontWeight: 650,
+              fontSize: 12,
+              '&:hover': { bgcolor: '#003B73' },
+            }}
+          >
+            {copyingDashboard ? 'Copying…' : 'Copy image'}
+          </Button>
+        </Stack>
       </Stack>
-    </Stack>
-    {customOpen && <Stack data-html2canvas-ignore="true" direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ mb: 2 }}><TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} /><TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} /><Button variant="contained" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }}>Apply range</Button></Stack>}
-    {copyFeedback && <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 12, mb: 1, color: copyFeedback.startsWith('Unable') ? t.danger : t.success }}>{copyFeedback}</Typography>}
+
+      {customOpen && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems="center" sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #F1F5F9' }}>
+          <TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ '& .MuiInputBase-input': { py: 0.6, fontSize: 12 } }} />
+          <TextField label="To" type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} sx={{ '& .MuiInputBase-input': { py: 0.6, fontSize: 12 } }} />
+          <Button variant="contained" size="small" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }} sx={{ textTransform: 'none', borderRadius: '999px', px: 2, height: 32, fontSize: 12 }}>
+            Apply range
+          </Button>
+        </Stack>
+      )}
+
+      {copyFeedback && (
+        <Typography role="status" sx={{ fontSize: 11.5, mt: 1, color: copyFeedback.startsWith('Unable') ? '#EF4444' : '#10B981', fontWeight: 650 }}>
+          {copyFeedback}
+        </Typography>
+      )}
+    </Box>
 
     {/* 5 Compact Horizontal Stat Cards - Pre-revert Design */}
     <Box
@@ -577,27 +701,71 @@ export default function AdminDashboard() {
       })}
     </Box>
 
-    <Box sx={{ bgcolor: t.surface, border: `1px solid ${t.border}`, borderRadius: 4, boxShadow: t.shadow, overflow: 'hidden' }}>
+    {/* 2 Main Charts Row - Separated Cards with Depth */}
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 2.5 }}>
+      {/* Left: Audit Portfolio Composition Card */}
+      <Box
+        component="section"
+        sx={{
+          bgcolor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: 4,
+          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02)',
+          p: { xs: 2.5, md: 3 },
+          transition: 'all 0.25s ease',
+          '&:hover': {
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.07)',
+            transform: 'translateY(-2px)',
+          },
+        }}
+      >
+        <RankedChart items={teamsByAuditType} {...shared} error={errors.portfolio} />
+      </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
-        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}` }}>
-          <RankedChart items={teamsByAuditType} {...shared} error={errors.portfolio} />
-        </Box>
-        <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}`, borderLeft: { lg: `1px solid ${t.border}` } }}>
-          <AttendanceChart
-            present={stats.presentStaff}
-            absent={stats.absentStaff}
-            compoff={stats.compoffStaff}
-            paidLeave={stats.paidLeaveStaff}
-            travel={stats.travelStaff}
-            notSet={stats.notSetStaff}
-            totalStaff={stats.totalTeamMembers}
-            {...shared}
-            error={errors.attendance}
-          />
-        </Box>
-        <Box ref={teamsSectionRef} component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 2.5 }, borderBottom: `1px solid ${t.border}`, bgcolor: '#F8FAFD' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
+      {/* Right: Attendance & Workforce Availability Card */}
+      <Box
+        component="section"
+        sx={{
+          bgcolor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: 4,
+          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02)',
+          p: { xs: 2.5, md: 3 },
+          transition: 'all 0.25s ease',
+          '&:hover': {
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.07)',
+            transform: 'translateY(-2px)',
+          },
+        }}
+      >
+        <AttendanceChart
+          present={stats.presentStaff}
+          absent={stats.absentStaff}
+          compoff={stats.compoffStaff}
+          paidLeave={stats.paidLeaveStaff}
+          travel={stats.travelStaff}
+          notSet={stats.notSetStaff}
+          totalStaff={stats.totalTeamMembers}
+          {...shared}
+          error={errors.attendance}
+        />
+      </Box>
+    </Box>
+
+    {/* Current Teams & User Activity - Independent Card */}
+    <Box
+      ref={teamsSectionRef}
+      component="section"
+      sx={{
+        bgcolor: t.surface,
+        border: `1px solid ${t.border}`,
+        borderRadius: 4,
+        boxShadow: t.shadow,
+        p: { xs: 2, md: 2.5 },
+        mb: 2.5,
+      }}
+    >
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
             <Box>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
@@ -877,11 +1045,20 @@ export default function AdminDashboard() {
           );
         })()}
             </ChartState>
-        </Box>
-        <Box component="section" sx={{ gridColumn: 'span 12', p: { xs: 2, md: 3 } }}>
-          <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
-        </Box>
-      </Box>
+    </Box>
+
+    {/* Audit State Comparison Section - Independent Card */}
+    <Box
+      component="section"
+      sx={{
+        bgcolor: t.surface,
+        border: `1px solid ${t.border}`,
+        borderRadius: 4,
+        boxShadow: t.shadow,
+        p: { xs: 2, md: 3 },
+      }}
+    >
+      <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
     </Box>
   </Box>;
 }
