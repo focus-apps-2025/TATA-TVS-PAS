@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Box, Button, Chip, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Chip, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
@@ -10,6 +10,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import SearchIcon from '@mui/icons-material/Search';
 import api from '../services/api';
 import type { Team } from '../services/api';
 import authManager from '../services/authSession';
@@ -757,101 +758,200 @@ export default function AdminDashboard() {
       ref={teamsSectionRef}
       component="section"
       sx={{
-        bgcolor: t.surface,
-        border: `1px solid ${t.border}`,
+        bgcolor: '#FFFFFF',
+        border: '1px solid #E2E8F0',
         borderRadius: 4,
-        boxShadow: t.shadow,
-        p: { xs: 2, md: 2.5 },
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02)',
+        p: { xs: 2.5, md: 3 },
         mb: 2.5,
       }}
     >
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1.5} sx={{ mb: 2 }}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        gap={1.5}
+        sx={{ mb: 2.5 }}
+      >
+        {/* Left: Section Header with Icon Badge & Counters */}
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={1.25}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: 2.5,
+                bgcolor: '#EFF6FF',
+                color: '#004F98',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 4px rgba(0,79,152,0.12)',
+                flexShrink: 0,
+              }}
+            >
+              <GroupsIcon sx={{ fontSize: 22 }} />
+            </Box>
             <Box>
               <Stack direction="row" alignItems="center" spacing={1}>
-                <Typography sx={{ fontSize: 16, fontWeight: 750, color: t.heading }}>
+                <Typography component="h2" sx={{ fontSize: 16, fontWeight: 750, color: '#0F172A' }}>
                   Current Teams & User Activity
                 </Typography>
                 <Chip
                   size="small"
                   label={`${visibleTeams.length} ${visibleTeams.length === 1 ? 'team' : 'teams'}`}
-                  sx={{ fontSize: 11, fontWeight: 650, height: 22, bgcolor: '#E2E8F0', color: '#334155' }}
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    height: 22,
+                    bgcolor: '#EFF6FF',
+                    color: '#004F98',
+                    border: '1px solid #BFDBFE',
+                  }}
                 />
               </Stack>
-              {teamCopyFeedback && (
-                <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mt: 0.5, color: teamCopyFeedback.startsWith('Unable') ? t.danger : t.success, fontWeight: 650 }}>
-                  {teamCopyFeedback}
-                </Typography>
-              )}
+              <Typography sx={{ fontSize: 11.5, color: '#64748B', mt: 0.25 }}>
+                Active field audit teams, locations, and individual auditor scan contributions
+              </Typography>
             </Box>
-            <Stack data-html2canvas-ignore="true" direction="row" spacing={1} alignItems="center">
-              <TextField
-                size="small"
-                placeholder="Search team or site…"
-                value={teamSearch}
-                onChange={(e) => setTeamSearch(e.target.value)}
-                sx={{
-                  width: { xs: '100%', sm: 220 },
-                  bgcolor: '#FFFFFF',
-                  borderRadius: 1,
-                  '& .MuiInputBase-input': { fontSize: 12, py: 0.65, px: 1 },
-                }}
-              />
-              <Button
-                size="small"
-                variant={onlyActiveTeams ? 'contained' : 'outlined'}
-                onClick={() => setOnlyActiveTeams(!onlyActiveTeams)}
-                sx={{ fontSize: 11.5, py: 0.6, whiteSpace: 'nowrap' }}
-              >
-                {onlyActiveTeams ? 'Active only' : 'All teams'}
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={copyTeamsSectionImage}
-                disabled={copyingTeams || isDataLoading || visibleTeams.length === 0}
-                startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
-                sx={{
-                  fontSize: 11.5,
-                  py: 0.6,
-                  px: 1.25,
-                  whiteSpace: 'nowrap',
-                  bgcolor: '#FFFFFF',
-                  borderColor: '#CBD5E1',
-                  color: '#1E293B',
-                  borderRadius: 1,
-                  '&:hover': { bgcolor: '#F8FAFC', borderColor: '#94A3B8' },
-                }}
-              >
-                {copyingTeams ? 'Copying…' : 'Copy image'}
-              </Button>
-            </Stack>
+          </Stack>
+          {teamCopyFeedback && (
+            <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mt: 0.5, color: teamCopyFeedback.startsWith('Unable') ? '#EF4444' : '#10B981', fontWeight: 650 }}>
+              {teamCopyFeedback}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Right: Modern Pill Toolbar */}
+        <Stack data-html2canvas-ignore="true" direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <TextField
+            size="small"
+            placeholder="Search team or site…"
+            value={teamSearch}
+            onChange={(e) => setTeamSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 16, color: '#94A3B8' }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              width: { xs: '100%', sm: 220 },
+              bgcolor: '#F8FAFC',
+              borderRadius: '999px',
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '999px',
+                borderColor: '#E2E8F0',
+                '&:hover fieldset': { borderColor: '#CBD5E1' },
+                '&.Mui-focused fieldset': { borderColor: '#004F98' },
+              },
+              '& .MuiInputBase-input': { fontSize: 12, py: 0.65, px: 0.5 },
+            }}
+          />
+
+          {/* Segmented Filter Pill: All vs Active */}
+          <Stack
+            direction="row"
+            sx={{
+              bgcolor: '#F1F5F9',
+              borderRadius: '999px',
+              p: 0.35,
+              border: '1px solid #E2E8F0',
+            }}
+          >
+            <Button
+              size="small"
+              aria-pressed={!onlyActiveTeams}
+              onClick={() => setOnlyActiveTeams(false)}
+              sx={{
+                minWidth: 64,
+                height: 28,
+                fontSize: 11,
+                fontWeight: !onlyActiveTeams ? 750 : 550,
+                bgcolor: !onlyActiveTeams ? '#004F98' : 'transparent',
+                color: !onlyActiveTeams ? '#FFFFFF' : '#64748B',
+                boxShadow: !onlyActiveTeams ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
+                borderRadius: '999px',
+                textTransform: 'none',
+                px: 1.25,
+                '&:hover': {
+                  bgcolor: !onlyActiveTeams ? '#004F98' : 'rgba(0,0,0,0.04)',
+                },
+              }}
+            >
+              All teams
+            </Button>
+            <Button
+              size="small"
+              aria-pressed={onlyActiveTeams}
+              onClick={() => setOnlyActiveTeams(true)}
+              sx={{
+                minWidth: 72,
+                height: 28,
+                fontSize: 11,
+                fontWeight: onlyActiveTeams ? 750 : 550,
+                bgcolor: onlyActiveTeams ? '#004F98' : 'transparent',
+                color: onlyActiveTeams ? '#FFFFFF' : '#64748B',
+                boxShadow: onlyActiveTeams ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
+                borderRadius: '999px',
+                textTransform: 'none',
+                px: 1.25,
+                '&:hover': {
+                  bgcolor: onlyActiveTeams ? '#004F98' : 'rgba(0,0,0,0.04)',
+                },
+              }}
+            >
+              Active only
+            </Button>
           </Stack>
 
-          <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
-            {(() => {
-              const count = visibleTeams.length;
-              // Dynamic column count based on team count:
-              // 1 to 4 items  -> display all in 1 row (columns = count)
-              // 5 to 6 items  -> 3 columns (3 x 2)
-              // 7 or more     -> 4 columns (4 x 2, 4 x 3, etc.)
-              const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
-              return (
-                <Box
-                  data-teams-scroll="true"
-                  sx={{
-                    maxHeight: 440,
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    pr: 0.5,
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: '1fr',
-                      sm: count === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                      md: `repeat(${cols}, minmax(0, 1fr))`,
-                    },
-                    gap: 1.5,
-                  }}
-                >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={copyTeamsSectionImage}
+            disabled={copyingTeams || isDataLoading || visibleTeams.length === 0}
+            startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
+            sx={{
+              fontSize: 11.5,
+              height: 32,
+              px: 1.75,
+              whiteSpace: 'nowrap',
+              bgcolor: '#FFFFFF',
+              borderColor: '#E2E8F0',
+              color: '#334155',
+              borderRadius: '999px',
+              fontWeight: 650,
+              textTransform: 'none',
+              '&:hover': { bgcolor: '#F8FAFC', borderColor: '#CBD5E1' },
+            }}
+          >
+            {copyingTeams ? 'Copying…' : 'Copy image'}
+          </Button>
+        </Stack>
+      </Stack>
+
+      <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
+        {(() => {
+          const count = visibleTeams.length;
+          const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
+          return (
+            <Box
+              data-teams-scroll="true"
+              sx={{
+                maxHeight: 460,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                pr: 0.5,
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: count === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  md: `repeat(${cols}, minmax(0, 1fr))`,
+                },
+                gap: 1.75,
+              }}
+            >
               {visibleTeams.map((team) => {
                 const typeStyle = getAuditTypeColor(team.auditType);
                 const hasScans = team.totalScans > 0;
@@ -861,181 +961,264 @@ export default function AdminDashboard() {
                     id={`team-card-${team.teamId}`}
                     sx={{
                       bgcolor: '#FFFFFF',
-                      borderRadius: 2.25,
-                      border: `1.5px solid ${hasScans ? '#93C5FD' : '#E2E8F0'}`,
-                      borderTop: `4px solid ${typeStyle.bar}`,
-                      background: hasScans ? 'linear-gradient(180deg, #F8FAFD 0%, #FFFFFF 52px)' : '#FFFFFF',
-                      boxShadow: hasScans ? '0 3px 10px rgba(37, 99, 235, 0.07)' : '0 1px 3px rgba(0,0,0,0.03)',
-                      p: 1.5,
+                      borderRadius: 3,
+                      border: '1px solid #E2E8F0',
+                      boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      p: 2,
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
                       minWidth: 0,
-                      overflow: 'hidden',
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '3.5px',
+                        background: typeStyle.bar,
+                      },
                       '&:hover': {
                         transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 20px rgba(0, 0, 0, 0.08)',
-                        borderColor: typeStyle.bar,
+                        boxShadow: '0 8px 22px -4px rgba(15, 23, 42, 0.08)',
+                        borderColor: typeStyle.border,
                       },
                     }}
                   >
                     {/* Team Header */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1, minWidth: 0 }}>
-                      <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0, mb: 0.35 }}>
-                          <Typography
-                            sx={{
-                              fontSize: 14,
-                              fontWeight: 800,
-                              color: '#0F172A',
-                              lineHeight: 1.25,
-                            }}
-                            noWrap
-                            title={team.teamName}
-                          >
-                            {team.teamName}
-                          </Typography>
-                          <Box
-                            sx={{
-                              px: 0.75,
-                              py: 0.15,
-                              borderRadius: 1,
-                              fontSize: 9.5,
-                              fontWeight: 800,
-                              letterSpacing: '0.3px',
-                              bgcolor: typeStyle.bg,
-                              color: typeStyle.color,
-                              border: `1px solid ${typeStyle.border}`,
-                              whiteSpace: 'nowrap',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {team.auditType}
-                          </Box>
+                    <Box sx={{ mb: 1.5, minWidth: 0 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.5 }}>
+                            <Box
+                              sx={{
+                                px: 0.85,
+                                py: 0.15,
+                                borderRadius: '999px',
+                                fontSize: 9.5,
+                                fontWeight: 800,
+                                bgcolor: typeStyle.bg,
+                                color: typeStyle.color,
+                                border: `1px solid ${typeStyle.border}`,
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {team.auditType}
+                            </Box>
+                            <Typography
+                              sx={{
+                                fontSize: 14,
+                                fontWeight: 800,
+                                color: '#0F172A',
+                                lineHeight: 1.25,
+                              }}
+                              noWrap
+                              title={team.teamName}
+                            >
+                              {team.teamName}
+                            </Typography>
+                          </Stack>
+
+                          {/* Location subtitle */}
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <LocationOnIcon sx={{ fontSize: 12.5, color: '#94A3B8', flexShrink: 0 }} />
+                            <Typography
+                              sx={{
+                                fontSize: 11,
+                                color: '#64748B',
+                              }}
+                              noWrap
+                              title={team.location || ''}
+                            >
+                              {team.location || 'Location not specified'}
+                            </Typography>
+                          </Stack>
+                        </Box>
+
+                        <Stack direction="row" alignItems="center" spacing={0.5} flexShrink={0}>
+                          {hasScans ? (
+                            <Box
+                              sx={{
+                                px: 1,
+                                py: 0.3,
+                                borderRadius: '999px',
+                                bgcolor: '#EFF6FF',
+                                color: '#1D4ED8',
+                                border: '1px solid #BFDBFE',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                whiteSpace: 'nowrap',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                              }}
+                            >
+                              <QrCodeScannerIcon sx={{ fontSize: 12 }} />
+                              {numberFormat(team.totalScans)} scans
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                px: 0.9,
+                                py: 0.25,
+                                borderRadius: '999px',
+                                bgcolor: '#F8FAFC',
+                                color: '#64748B',
+                                border: '1px solid #E2E8F0',
+                                fontSize: 10.5,
+                                fontWeight: 650,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              0 scans
+                            </Box>
+                          )}
+                          <Tooltip title="Copy team card as image">
+                            <IconButton
+                              data-html2canvas-ignore="true"
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void copySingleTeamImage(team.teamId, team.teamName);
+                              }}
+                              disabled={copyingTeamId === team.teamId}
+                              sx={{
+                                p: 0.35,
+                                color: '#64748B',
+                                '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
+                              }}
+                            >
+                              <ContentCopyIcon sx={{ fontSize: 13 }} />
+                            </IconButton>
+                          </Tooltip>
                         </Stack>
-                        <Typography
-                          sx={{
-                            fontSize: 10.5,
-                            color: '#64748B',
-                          }}
-                          noWrap
-                          title={team.location || ''}
-                        >
-                          {team.location || 'No location specified'}
-                        </Typography>
-                      </Box>
-                      <Stack direction="row" alignItems="center" spacing={0.5} flexShrink={0}>
-                        {hasScans ? (
-                          <Box
-                            sx={{
-                              px: 1,
-                              py: 0.3,
-                              borderRadius: '12px',
-                              bgcolor: '#EFF6FF',
-                              color: '#1D4ED8',
-                              border: '1.5px solid #93C5FD',
-                              fontSize: 11,
-                              fontWeight: 850,
-                              whiteSpace: 'nowrap',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                            }}
-                          >
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#2563EB' }} />
-                            {numberFormat(team.totalScans)} scans
-                          </Box>
-                        ) : (
-                          <Box
-                            sx={{
-                              px: 0.9,
-                              py: 0.25,
-                              borderRadius: '12px',
-                              bgcolor: '#F1F5F9',
-                              color: '#64748B',
-                              fontSize: 10.5,
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            0 scans
-                          </Box>
-                        )}
-                        <Tooltip title="Copy team card as image">
-                          <IconButton
-                            data-html2canvas-ignore="true"
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void copySingleTeamImage(team.teamId, team.teamName);
-                            }}
-                            disabled={copyingTeamId === team.teamId}
-                            sx={{
-                              p: 0.35,
-                              color: '#64748B',
-                              '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
-                            }}
-                          >
-                            <ContentCopyIcon sx={{ fontSize: 13 }} />
-                          </IconButton>
-                        </Tooltip>
                       </Stack>
                     </Box>
 
                     {/* User Activity Section */}
-                    <Box sx={{ pt: 0.85, borderTop: '1px solid #F1F5F9', minHeight: 46 }}>
-                      <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.65 }}>
-                        USER ACTIVITY
-                      </Typography>
+                    <Box sx={{ pt: 1.25, borderTop: '1px dashed #E2E8F0', minHeight: 48 }}>
+                      <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mb: 0.85 }}>
+                        <PersonIcon sx={{ fontSize: 12.5, color: '#64748B' }} />
+                        <Typography
+                          sx={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: '#64748B',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          Auditor Activity ({team.members.length})
+                        </Typography>
+                      </Stack>
+
                       {team.members.length === 0 ? (
-                        <Typography sx={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', py: 0.25 }}>
-                          No assigned members
+                        <Typography sx={{ fontSize: 11.5, color: '#94A3B8', fontStyle: 'italic', py: 0.5 }}>
+                          No auditors assigned
                         </Typography>
                       ) : (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                          {team.members.map((member) => (
-                            <Box
-                              key={member.id}
-                              sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                px: member.scanCount > 0 ? 0.9 : 0.85,
-                                py: 0.3,
-                                borderRadius: '14px',
-                                border: `1.5px solid ${member.scanCount > 0 ? '#059669' : '#CBD5E1'}`,
-                                bgcolor: member.scanCount > 0 ? '#ECFDF5' : '#F8FAFC',
-                                boxShadow: member.scanCount > 0 ? '0 1px 3px rgba(5, 150, 105, 0.12)' : 'none',
-                              }}
-                            >
-                              <PersonIcon sx={{ fontSize: 13, color: member.scanCount > 0 ? '#059669' : '#64748B' }} />
-                              <Typography sx={{ fontSize: 11, fontWeight: member.scanCount > 0 ? 750 : 650, color: member.scanCount > 0 ? '#065F46' : '#1E293B' }}>
-                                {member.name}
-                              </Typography>
-                              {member.scanCount > 0 ? (
-                                <Box
-                                  sx={{
-                                    px: 0.55,
-                                    py: 0.05,
-                                    borderRadius: '8px',
-                                    bgcolor: '#059669',
-                                    color: '#FFFFFF',
-                                    fontSize: 10,
-                                    fontWeight: 800,
-                                    lineHeight: 1.2,
-                                  }}
-                                >
-                                  {member.scanCount}
-                                </Box>
-                              ) : (
-                                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94A3B8' }}>
-                                  : 0
-                                </Typography>
-                              )}
-                            </Box>
-                          ))}
-                        </Box>
+                        <Stack spacing={0.6}>
+                          {team.members.map((member) => {
+                            const hasMemberScans = member.scanCount > 0;
+                            const initial = member.name ? member.name.charAt(0).toUpperCase() : '?';
+                            return (
+                              <Box
+                                key={member.id}
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  p: '5px 9px',
+                                  borderRadius: 2,
+                                  bgcolor: hasMemberScans ? '#F8FAFC' : '#FAFAFA',
+                                  border: `1px solid ${hasMemberScans ? '#E2E8F0' : '#F1F5F9'}`,
+                                  transition: 'all 0.15s ease',
+                                  '&:hover': {
+                                    bgcolor: '#FFFFFF',
+                                    borderColor: hasMemberScans ? '#CBD5E1' : '#E2E8F0',
+                                    boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+                                  },
+                                }}
+                              >
+                                {/* Left: Initial avatar + Name */}
+                                <Stack direction="row" alignItems="center" spacing={0.85} sx={{ minWidth: 0, pr: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 20,
+                                      height: 20,
+                                      borderRadius: '50%',
+                                      bgcolor: hasMemberScans ? '#EFF6FF' : '#F1F5F9',
+                                      color: hasMemberScans ? '#004F98' : '#64748B',
+                                      fontSize: 10,
+                                      fontWeight: 800,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {initial}
+                                  </Box>
+                                  <Typography
+                                    sx={{
+                                      fontSize: 11.5,
+                                      fontWeight: hasMemberScans ? 700 : 550,
+                                      color: hasMemberScans ? '#0F172A' : '#475569',
+                                    }}
+                                    noWrap
+                                    title={member.name}
+                                  >
+                                    {member.name}
+                                  </Typography>
+                                </Stack>
+
+                                {/* Right: Scans count badge */}
+                                {hasMemberScans ? (
+                                  <Box
+                                    sx={{
+                                      fontSize: 10.5,
+                                      fontWeight: 800,
+                                      color: '#047857',
+                                      bgcolor: '#ECFDF5',
+                                      border: '1px solid #A7F3D0',
+                                      px: 0.8,
+                                      py: 0.1,
+                                      borderRadius: '999px',
+                                      flexShrink: 0,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.35,
+                                    }}
+                                  >
+                                    <span>{numberFormat(member.scanCount)}</span>
+                                    <Typography component="span" sx={{ fontSize: 9, fontWeight: 650, opacity: 0.85 }}>
+                                      scans
+                                    </Typography>
+                                  </Box>
+                                ) : (
+                                  <Typography
+                                    sx={{
+                                      fontSize: 10.5,
+                                      fontWeight: 650,
+                                      color: '#94A3B8',
+                                      bgcolor: '#F1F5F9',
+                                      px: 0.75,
+                                      py: 0.1,
+                                      borderRadius: '999px',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    0
+                                  </Typography>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Stack>
                       )}
                     </Box>
                   </Box>
@@ -1044,18 +1227,18 @@ export default function AdminDashboard() {
             </Box>
           );
         })()}
-            </ChartState>
+      </ChartState>
     </Box>
 
     {/* Audit State Comparison Section - Independent Card */}
     <Box
       component="section"
       sx={{
-        bgcolor: t.surface,
-        border: `1px solid ${t.border}`,
+        bgcolor: '#FFFFFF',
+        border: '1px solid #E2E8F0',
         borderRadius: 4,
-        boxShadow: t.shadow,
-        p: { xs: 2, md: 3 },
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02)',
+        p: { xs: 2.5, md: 3 },
       }}
     >
       <AuditStateComparison followUps={followUpRecords} completions={completionRecords} {...shared} error={errors.followups || errors.completions} />
@@ -1067,13 +1250,14 @@ const numberFormat = (value: number) => value.toLocaleString('en-IN');
 const getAuditTypeColor = (type?: string) => {
   const str = String(type || '').toUpperCase();
   if (str.includes('TATA')) {
-    return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE', bar: '#2563EB' };
+    return { bg: '#FFF7ED', color: '#D35400', border: '#FED7AA', bar: 'linear-gradient(90deg, #EA580C, #F97316)' };
   }
   if (str.includes('3W')) {
-    return { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', bar: '#EA580C' };
+    return { bg: '#F0FDFA', color: '#0F766E', border: '#99F6E4', bar: 'linear-gradient(90deg, #0F766E, #14B8A6)' };
   }
   if (str.includes('TVS')) {
-    return { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0', bar: '#059669' };
+    return { bg: '#EFF6FF', color: '#004F98', border: '#BFDBFE', bar: 'linear-gradient(90deg, #004F98, #3B82F6)' };
   }
-  return { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE', bar: '#7C3AED' };
+  return { bg: '#EEF2FF', color: '#6366F1', border: '#DDD6FE', bar: 'linear-gradient(90deg, #6366F1, #818CF8)' };
 };
+
