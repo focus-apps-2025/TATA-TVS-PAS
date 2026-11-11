@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { Box, Button, Chip, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Box, Button, Chip, IconButton, InputAdornment, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Tooltip, Typography
+} from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
@@ -773,48 +777,14 @@ export default function AdminDashboard() {
         gap={1.5}
         sx={{ mb: 2.5 }}
       >
-        {/* Left: Section Header with Icon Badge & Counters */}
+        {/* Left: Section Header with Title & Subtitle */}
         <Box>
-          <Stack direction="row" alignItems="center" spacing={1.25}>
-            <Box
-              sx={{
-                width: 38,
-                height: 38,
-                borderRadius: 2.5,
-                bgcolor: '#EFF6FF',
-                color: '#004F98',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 1px 4px rgba(0,79,152,0.12)',
-                flexShrink: 0,
-              }}
-            >
-              <GroupsIcon sx={{ fontSize: 22 }} />
-            </Box>
-            <Box>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Typography component="h2" sx={{ fontSize: 16, fontWeight: 750, color: '#0F172A' }}>
-                  Current Teams & User Activity
-                </Typography>
-                <Chip
-                  size="small"
-                  label={`${visibleTeams.length} ${visibleTeams.length === 1 ? 'team' : 'teams'}`}
-                  sx={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    height: 22,
-                    bgcolor: '#EFF6FF',
-                    color: '#004F98',
-                    border: '1px solid #BFDBFE',
-                  }}
-                />
-              </Stack>
-              <Typography sx={{ fontSize: 11.5, color: '#64748B', mt: 0.25 }}>
-                Active field audit teams, locations, and individual auditor scan contributions
-              </Typography>
-            </Box>
-          </Stack>
+          <Typography component="h2" sx={{ fontSize: 18, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+            Teams Leaderboard
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#64748B', mt: 0.35, fontWeight: 500 }}>
+            Current Teams & User Activity
+          </Typography>
           {teamCopyFeedback && (
             <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mt: 0.5, color: teamCopyFeedback.startsWith('Unable') ? '#EF4444' : '#10B981', fontWeight: 650 }}>
               {teamCopyFeedback}
@@ -822,11 +792,44 @@ export default function AdminDashboard() {
           )}
         </Box>
 
-        {/* Right: Modern Pill Toolbar */}
+        {/* Right: Team count pill + Search + Filter + Copy */}
         <Stack data-html2canvas-ignore="true" direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          {/* Team count badge pill exactly as in reference */}
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.75,
+              bgcolor: '#F1F5F9',
+              border: '1px solid #E2E8F0',
+              borderRadius: '999px',
+              px: 1.5,
+              py: 0.45,
+              fontSize: 12,
+              fontWeight: 650,
+              color: '#334155',
+            }}
+          >
+            <span>Team count</span>
+            <Box
+              sx={{
+                bgcolor: '#E2E8F0',
+                color: '#0F172A',
+                fontWeight: 800,
+                fontSize: 11,
+                px: 0.85,
+                py: 0.1,
+                borderRadius: '999px',
+              }}
+            >
+              {visibleTeams.length}
+            </Box>
+          </Box>
+
+          {/* Search Input */}
           <TextField
             size="small"
-            placeholder="Search team or site…"
+            placeholder="Search"
             value={teamSearch}
             onChange={(e) => setTeamSearch(e.target.value)}
             InputProps={{
@@ -837,26 +840,27 @@ export default function AdminDashboard() {
               ),
             }}
             sx={{
-              width: { xs: '100%', sm: 220 },
-              bgcolor: '#F8FAFC',
+              width: { xs: '100%', sm: 180 },
+              bgcolor: '#FFFFFF',
               borderRadius: '999px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: '999px',
                 borderColor: '#E2E8F0',
+                height: 32,
                 '&:hover fieldset': { borderColor: '#CBD5E1' },
                 '&.Mui-focused fieldset': { borderColor: '#004F98' },
               },
-              '& .MuiInputBase-input': { fontSize: 12, py: 0.65, px: 0.5 },
+              '& .MuiInputBase-input': { fontSize: 12, py: 0.5, px: 0.5 },
             }}
           />
 
-          {/* Segmented Filter Pill: All vs Active */}
+          {/* Segmented Filter Pill */}
           <Stack
             direction="row"
             sx={{
               bgcolor: '#F1F5F9',
               borderRadius: '999px',
-              p: 0.35,
+              p: 0.3,
               border: '1px solid #E2E8F0',
             }}
           >
@@ -865,8 +869,8 @@ export default function AdminDashboard() {
               aria-pressed={!onlyActiveTeams}
               onClick={() => setOnlyActiveTeams(false)}
               sx={{
-                minWidth: 64,
-                height: 28,
+                minWidth: 60,
+                height: 26,
                 fontSize: 11,
                 fontWeight: !onlyActiveTeams ? 750 : 550,
                 bgcolor: !onlyActiveTeams ? '#004F98' : 'transparent',
@@ -874,7 +878,7 @@ export default function AdminDashboard() {
                 boxShadow: !onlyActiveTeams ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
                 borderRadius: '999px',
                 textTransform: 'none',
-                px: 1.25,
+                px: 1.2,
                 '&:hover': {
                   bgcolor: !onlyActiveTeams ? '#004F98' : 'rgba(0,0,0,0.04)',
                 },
@@ -887,8 +891,8 @@ export default function AdminDashboard() {
               aria-pressed={onlyActiveTeams}
               onClick={() => setOnlyActiveTeams(true)}
               sx={{
-                minWidth: 72,
-                height: 28,
+                minWidth: 68,
+                height: 26,
                 fontSize: 11,
                 fontWeight: onlyActiveTeams ? 750 : 550,
                 bgcolor: onlyActiveTeams ? '#004F98' : 'transparent',
@@ -896,7 +900,7 @@ export default function AdminDashboard() {
                 boxShadow: onlyActiveTeams ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
                 borderRadius: '999px',
                 textTransform: 'none',
-                px: 1.25,
+                px: 1.2,
                 '&:hover': {
                   bgcolor: onlyActiveTeams ? '#004F98' : 'rgba(0,0,0,0.04)',
                 },
@@ -906,6 +910,7 @@ export default function AdminDashboard() {
             </Button>
           </Stack>
 
+          {/* Copy Button */}
           <Button
             variant="outlined"
             size="small"
@@ -914,8 +919,8 @@ export default function AdminDashboard() {
             startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
             sx={{
               fontSize: 11.5,
-              height: 32,
-              px: 1.75,
+              height: 30,
+              px: 1.5,
               whiteSpace: 'nowrap',
               bgcolor: '#FFFFFF',
               borderColor: '#E2E8F0',
@@ -933,255 +938,153 @@ export default function AdminDashboard() {
 
       <ChartState {...shared} error={errors.activity} empty={!visibleTeams.length}>
         {(() => {
-          const count = visibleTeams.length;
-          const cols = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
+          const sorted = [...visibleTeams].sort((a, b) => b.totalScans - a.totalScans || a.teamName.localeCompare(b.teamName));
           return (
-            <Box
+            <TableContainer
               data-teams-scroll="true"
               sx={{
-                maxHeight: 460,
+                maxHeight: 480,
                 overflowY: 'auto',
-                overflowX: 'hidden',
-                pr: 0.5,
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: count === 1 ? 'minmax(320px, 480px)' : 'repeat(auto-fill, minmax(320px, 1fr))',
-                  md: count === 1 ? 'minmax(320px, 480px)' : 'repeat(auto-fill, minmax(340px, 1fr))',
-                },
-                gap: 2,
-                alignItems: 'start',
+                border: '1px solid #E2E8F0',
+                borderRadius: 2.5,
+                bgcolor: '#FFFFFF',
               }}
             >
-              {visibleTeams.map((team) => {
-                const typeStyle = getAuditTypeColor(team.auditType);
-                const hasScans = team.totalScans > 0;
-                return (
-                  <Box
-                    key={team.teamId}
-                    id={`team-card-${team.teamId}`}
-                    sx={{
-                      bgcolor: '#FFFFFF',
-                      borderRadius: 3,
-                      border: '1px solid #E2E8F0',
-                      boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      p: 2,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minWidth: 0,
-                      maxWidth: count === 1 ? 520 : 'none',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '3.5px',
-                        background: typeStyle.bar,
-                      },
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 22px -4px rgba(15, 23, 42, 0.08)',
-                        borderColor: typeStyle.border,
-                      },
-                    }}
-                  >
-                    {/* Team Header */}
-                    <Box sx={{ mb: 1.5, minWidth: 0 }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.5 }}>
-                            <Box
-                              sx={{
-                                px: 0.85,
-                                py: 0.2,
-                                borderRadius: '999px',
-                                fontSize: 10,
-                                fontWeight: 800,
-                                bgcolor: typeStyle.bg,
-                                color: typeStyle.color,
-                                border: `1px solid ${typeStyle.border}`,
-                                whiteSpace: 'nowrap',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {team.auditType}
-                            </Box>
-                            <Typography
-                              sx={{
-                                fontSize: 14.5,
-                                fontWeight: 800,
-                                color: '#0F172A',
-                                lineHeight: 1.25,
-                              }}
-                              noWrap
-                              title={team.teamName}
-                            >
-                              {team.teamName}
-                            </Typography>
-                          </Stack>
+              <Table stickyHeader sx={{ minWidth: 700 }}>
+                <TableHead>
+                  <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', borderBottom: '1.5px solid #E2E8F0', py: 1.25, px: 2, fontSize: 12, fontWeight: 750, color: '#475569' } }}>
+                    <TableCell sx={{ width: 50, textAlign: 'center' }}>#</TableCell>
+                    <TableCell>Team Name</TableCell>
+                    <TableCell>Location</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>Audit Type</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      Scan Count{' '}
+                      <Box component="span" sx={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', bgcolor: '#004F98', ml: 0.5, verticalAlign: 'middle' }} />
+                    </TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>Members</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sorted.map((team, idx) => {
+                    const typeStyle = getAuditTypeColor(team.auditType);
+                    const hasScans = team.totalScans > 0;
+                    return (
+                      <TableRow
+                        key={team.teamId}
+                        id={`team-card-${team.teamId}`}
+                        sx={{
+                          transition: 'background-color 0.15s',
+                          bgcolor: idx % 2 === 0 ? '#FFFFFF' : '#FAFCFF',
+                          '&:hover': { bgcolor: '#F1F5F9' },
+                          '& td': { py: 1.25, px: 2, borderBottom: '1px solid #F1F5F9' },
+                        }}
+                      >
+                        {/* 1. Rank */}
+                        <TableCell sx={{ textAlign: 'center', fontSize: 13, fontWeight: 650, color: '#64748B' }}>
+                          {idx + 1}
+                        </TableCell>
 
-                          {/* Location subtitle */}
-                          <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <LocationOnIcon sx={{ fontSize: 13, color: '#94A3B8', flexShrink: 0 }} />
-                            <Typography
-                              sx={{
-                                fontSize: 11.5,
-                                color: '#64748B',
-                                fontWeight: 550,
-                              }}
-                              noWrap
-                              title={team.location || ''}
-                            >
-                              {team.location || 'Location not specified'}
-                            </Typography>
-                          </Stack>
-                        </Box>
+                        {/* 2. Team Name */}
+                        <TableCell>
+                          <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }} noWrap title={team.teamName}>
+                            {team.teamName}
+                          </Typography>
+                        </TableCell>
 
-                        <Stack direction="row" alignItems="center" spacing={0.5} flexShrink={0}>
-                          {hasScans ? (
-                            <Box
-                              sx={{
-                                px: 1.1,
-                                py: 0.35,
-                                borderRadius: '999px',
-                                bgcolor: '#EFF6FF',
-                                color: '#1D4ED8',
-                                border: '1px solid #BFDBFE',
-                                fontSize: 11.5,
-                                fontWeight: 800,
-                                whiteSpace: 'nowrap',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                              }}
-                            >
-                              <QrCodeScannerIcon sx={{ fontSize: 12.5 }} />
-                              {numberFormat(team.totalScans)} scans
-                            </Box>
+                        {/* 3. Location */}
+                        <TableCell>
+                          <Typography sx={{ fontSize: 12.5, color: '#64748B', fontWeight: 500 }} noWrap title={team.location || ''}>
+                            {team.location || '—'}
+                          </Typography>
+                        </TableCell>
+
+                        {/* 4. Audit Type (Solid colored pill) */}
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Box
+                            sx={{
+                              display: 'inline-block',
+                              px: 1.5,
+                              py: 0.35,
+                              borderRadius: '999px',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              bgcolor: typeStyle.color,
+                              color: '#FFFFFF',
+                              letterSpacing: '0.2px',
+                              whiteSpace: 'nowrap',
+                              boxShadow: `0 1px 3px ${typeStyle.color}40`,
+                            }}
+                          >
+                            {team.auditType}
+                          </Box>
+                        </TableCell>
+
+                        {/* 5. Scan Count (Bold number + blue dot) */}
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.75}>
+                            <Typography sx={{ fontSize: 13.5, fontWeight: 850, color: '#0F172A' }}>
+                              {numberFormat(team.totalScans)}
+                            </Typography>
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#004F98' }} />
+                          </Stack>
+                        </TableCell>
+
+                        {/* 6. Members (Green/gray dots with tooltip) */}
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          {team.members.length === 0 ? (
+                            <Typography sx={{ fontSize: 12, color: '#94A3B8' }}>—</Typography>
                           ) : (
-                            <Box
-                              sx={{
-                                px: 0.9,
-                                py: 0.25,
-                                borderRadius: '999px',
-                                bgcolor: '#F8FAFC',
-                                color: '#64748B',
-                                border: '1px solid #E2E8F0',
-                                fontSize: 11,
-                                fontWeight: 650,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              0 scans
-                            </Box>
+                            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.65}>
+                              {team.members.map((m) => (
+                                <Tooltip
+                                  key={m.id}
+                                  title={`${m.name}: ${numberFormat(m.scanCount)} scans`}
+                                  arrow
+                                >
+                                  <Box
+                                    sx={{
+                                      width: 9,
+                                      height: 9,
+                                      borderRadius: '50%',
+                                      bgcolor: m.scanCount > 0 ? '#22C55E' : '#CBD5E1',
+                                      boxShadow: m.scanCount > 0 ? '0 0 4px rgba(34, 197, 94, 0.4)' : 'none',
+                                      cursor: 'pointer',
+                                      transition: 'transform 0.15s',
+                                      '&:hover': { transform: 'scale(1.4)' },
+                                    }}
+                                  />
+                                </Tooltip>
+                              ))}
+                            </Stack>
                           )}
-                          <Tooltip title="Copy team card as image">
-                            <IconButton
-                              data-html2canvas-ignore="true"
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void copySingleTeamImage(team.teamId, team.teamName);
-                              }}
-                              disabled={copyingTeamId === team.teamId}
-                              sx={{
-                                p: 0.4,
-                                color: '#64748B',
-                                '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
-                              }}
-                            >
-                              <ContentCopyIcon sx={{ fontSize: 13 }} />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </Stack>
-                    </Box>
+                        </TableCell>
 
-                    {/* User Activity Section */}
-                    <Box sx={{ pt: 1.25, borderTop: '1px dashed #E2E8F0' }}>
-                      <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mb: 1 }}>
-                        <PersonIcon sx={{ fontSize: 13, color: '#64748B' }} />
-                        <Typography
-                          sx={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            color: '#64748B',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          Auditor Activity ({team.members.length})
-                        </Typography>
-                      </Stack>
-
-                      {team.members.length === 0 ? (
-                        <Typography sx={{ fontSize: 11.5, color: '#94A3B8', fontStyle: 'italic', py: 0.5 }}>
-                          No auditors assigned
-                        </Typography>
-                      ) : (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                          {team.members.map((member) => {
-                            const active = member.scanCount > 0;
-                            return (
-                              <Box
-                                key={member.id}
-                                sx={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.6,
-                                  px: 1,
-                                  py: 0.35,
-                                  borderRadius: '999px',
-                                  border: `1px solid ${active ? '#86EFAC' : '#E2E8F0'}`,
-                                  bgcolor: active ? '#F0FDF4' : '#F8FAFC',
-                                  transition: 'all 0.15s ease',
-                                  '&:hover': {
-                                    borderColor: active ? '#22C55E' : '#CBD5E1',
-                                    bgcolor: '#FFFFFF',
-                                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                                  },
-                                }}
-                              >
-                                <PersonIcon sx={{ fontSize: 13, color: active ? '#16A34A' : '#94A3B8' }} />
-                                <Typography
-                                  sx={{
-                                    fontSize: 11.5,
-                                    fontWeight: active ? 750 : 550,
-                                    color: active ? '#14532D' : '#475569',
-                                  }}
-                                  noWrap
-                                  title={member.name}
-                                >
-                                  {member.name}
-                                </Typography>
-                                <Box
-                                  sx={{
-                                    px: 0.6,
-                                    py: 0.05,
-                                    borderRadius: '999px',
-                                    bgcolor: active ? '#16A34A' : '#E2E8F0',
-                                    color: active ? '#FFFFFF' : '#64748B',
-                                    fontSize: 10,
-                                    fontWeight: 800,
-                                    lineHeight: 1.2,
-                                  }}
-                                >
-                                  {numberFormat(member.scanCount)}
-                                </Box>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                );
-              })}
-            </Box>
+                        {/* 7. Status Pill */}
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Box
+                            sx={{
+                              display: 'inline-block',
+                              px: 1.25,
+                              py: 0.25,
+                              borderRadius: '999px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              bgcolor: hasScans ? '#ECFDF5' : '#F1F5F9',
+                              color: hasScans ? '#047857' : '#64748B',
+                              border: `1px solid ${hasScans ? '#A7F3D0' : '#E2E8F0'}`,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {hasScans ? 'Active' : (team.status || 'Idle')}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
           );
         })()}
       </ChartState>
