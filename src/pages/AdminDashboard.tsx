@@ -950,19 +950,19 @@ export default function AdminDashboard() {
                 bgcolor: '#FFFFFF',
               }}
             >
-              <Table stickyHeader sx={{ minWidth: 700 }}>
+              <Table stickyHeader sx={{ minWidth: 800 }}>
                 <TableHead>
-                  <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', borderBottom: '1.5px solid #E2E8F0', py: 1.25, px: 2, fontSize: 12, fontWeight: 750, color: '#475569' } }}>
-                    <TableCell sx={{ width: 50, textAlign: 'center' }}>#</TableCell>
-                    <TableCell>Team Name</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>Audit Type</TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>
+                  <TableRow sx={{ '& th': { bgcolor: '#F8FAFC', borderBottom: '1.5px solid #E2E8F0', py: 1.25, px: 1.5, fontSize: 12, fontWeight: 750, color: '#475569' } }}>
+                    <TableCell sx={{ width: 44, textAlign: 'center' }}>#</TableCell>
+                    <TableCell sx={{ width: '16%', minWidth: 130 }}>Team Name</TableCell>
+                    <TableCell sx={{ width: '12%', minWidth: 100 }}>Location</TableCell>
+                    <TableCell sx={{ width: '10%', minWidth: 90, textAlign: 'center' }}>Audit Type</TableCell>
+                    <TableCell sx={{ width: '10%', minWidth: 95, textAlign: 'center' }}>
                       Scan Count{' '}
                       <Box component="span" sx={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', bgcolor: '#004F98', ml: 0.5, verticalAlign: 'middle' }} />
                     </TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>Members</TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>Status</TableCell>
+                    <TableCell sx={{ width: '42%', minWidth: 300 }}>Members & Scans</TableCell>
+                    <TableCell sx={{ width: '10%', minWidth: 85, textAlign: 'center' }}>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -977,7 +977,7 @@ export default function AdminDashboard() {
                           transition: 'background-color 0.15s',
                           bgcolor: idx % 2 === 0 ? '#FFFFFF' : '#FAFCFF',
                           '&:hover': { bgcolor: '#F1F5F9' },
-                          '& td': { py: 1.25, px: 2, borderBottom: '1px solid #F1F5F9' },
+                          '& td': { py: 1.25, px: 1.5, borderBottom: '1px solid #F1F5F9' },
                         }}
                       >
                         {/* 1. Rank */}
@@ -1030,33 +1030,72 @@ export default function AdminDashboard() {
                           </Stack>
                         </TableCell>
 
-                        {/* 6. Members (Green/gray dots with tooltip) */}
-                        <TableCell sx={{ textAlign: 'center' }}>
+                        {/* 6. Members with Names and Scan Counts */}
+                        <TableCell>
                           {team.members.length === 0 ? (
-                            <Typography sx={{ fontSize: 12, color: '#94A3B8' }}>—</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: '#94A3B8', fontStyle: 'italic' }}>
+                              No assigned members
+                            </Typography>
                           ) : (
-                            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.65}>
-                              {team.members.map((m) => (
-                                <Tooltip
-                                  key={m.id}
-                                  title={`${m.name}: ${numberFormat(m.scanCount)} scans`}
-                                  arrow
-                                >
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65, alignItems: 'center' }}>
+                              {team.members.map((m) => {
+                                const hasMemberScans = m.scanCount > 0;
+                                return (
                                   <Box
+                                    key={m.id}
                                     sx={{
-                                      width: 9,
-                                      height: 9,
-                                      borderRadius: '50%',
-                                      bgcolor: m.scanCount > 0 ? '#22C55E' : '#CBD5E1',
-                                      boxShadow: m.scanCount > 0 ? '0 0 4px rgba(34, 197, 94, 0.4)' : 'none',
-                                      cursor: 'pointer',
-                                      transition: 'transform 0.15s',
-                                      '&:hover': { transform: 'scale(1.4)' },
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                      px: 0.9,
+                                      py: 0.25,
+                                      borderRadius: '999px',
+                                      bgcolor: hasMemberScans ? '#F0FDF4' : '#F8FAFC',
+                                      border: `1px solid ${hasMemberScans ? '#86EFAC' : '#E2E8F0'}`,
+                                      transition: 'all 0.15s ease',
+                                      whiteSpace: 'nowrap',
+                                      '&:hover': {
+                                        borderColor: hasMemberScans ? '#22C55E' : '#CBD5E1',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                      },
                                     }}
-                                  />
-                                </Tooltip>
-                              ))}
-                            </Stack>
+                                  >
+                                    <Box
+                                      sx={{
+                                        width: 6,
+                                        height: 6,
+                                        borderRadius: '50%',
+                                        bgcolor: hasMemberScans ? '#16A34A' : '#94A3B8',
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                    <Typography
+                                      sx={{
+                                        fontSize: 11.5,
+                                        fontWeight: hasMemberScans ? 750 : 550,
+                                        color: hasMemberScans ? '#14532D' : '#475569',
+                                      }}
+                                    >
+                                      {m.name}
+                                    </Typography>
+                                    <Box
+                                      sx={{
+                                        px: 0.55,
+                                        py: 0.05,
+                                        borderRadius: '999px',
+                                        bgcolor: hasMemberScans ? '#16A34A' : '#E2E8F0',
+                                        color: hasMemberScans ? '#FFFFFF' : '#64748B',
+                                        fontSize: 10,
+                                        fontWeight: 800,
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {numberFormat(m.scanCount)}
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
                           )}
                         </TableCell>
 
