@@ -4,6 +4,11 @@ import { Box, Button, Chip, IconButton, Stack, TextField, Tooltip, Typography } 
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import BusinessIcon from '@mui/icons-material/Business';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import GroupsIcon from '@mui/icons-material/Groups';
 import api from '../services/api';
 import type { Team } from '../services/api';
 import authManager from '../services/authSession';
@@ -376,13 +381,74 @@ export default function AdminDashboard() {
   const todayCreatedSites = (dailyActivity ? stats.currentSites : 0);
   const activeSitesCount = stats.teams; // active non-archived sites/teams
 
-  const metrics = [
-    { label: 'Total Users', value: stats.users, error: errors.workspace },
-    { label: 'Active Sites', value: activeSitesCount, error: errors.portfolio },
-    { label: 'Current Sites', value: stats.currentSites, caption: 'Created today', error: errors.portfolio },
-    { label: 'Total Scans', value: dailyActivity.reduce((sum, team) => sum + team.totalScans, 0), error: errors.activity },
-    { label: 'Teams Recorded Scans', value: dailyActivity.filter((team) => team.totalScans > 0).length, error: errors.activity },
+  const calcTrend = (current: number, previous: number) => {
+    if (previous <= 0) return { pct: '+0.0%', isUp: true };
+    const diff = ((current - previous) / previous) * 100;
+    const isUp = diff >= 0;
+    return {
+      pct: `${isUp ? '+' : ''}${diff.toFixed(1)}%`,
+      isUp,
+    };
+  };
+
+  const statCards = [
+    {
+      label: 'Total Users',
+      value: stats.users,
+      trend: calcTrend(stats.users, previous[0] || 0),
+      icon: PeopleAltIcon,
+      iconColor: '#5B4EB7',
+      bg: '#EDE9FE',
+      border: '#DDD6FE',
+      circleBg: '#DDD6FE',
+      error: errors.workspace,
+    },
+    {
+      label: 'Active Sites',
+      value: activeSitesCount,
+      trend: calcTrend(activeSitesCount, previous[1] || 0),
+      icon: BusinessIcon,
+      iconColor: '#0284C7',
+      bg: '#E0F2FE',
+      border: '#BAE6FD',
+      circleBg: '#BAE6FD',
+      error: errors.portfolio,
+    },
+    {
+      label: 'Current Sites',
+      value: stats.currentSites,
+      trend: calcTrend(stats.currentSites, previous[2] || 0),
+      icon: LocationOnIcon,
+      iconColor: '#059669',
+      bg: '#DCFCE7',
+      border: '#BBF7D0',
+      circleBg: '#BBF7D0',
+      error: errors.portfolio,
+    },
+    {
+      label: 'Total Scans',
+      value: dailyActivity.reduce((sum, team) => sum + team.totalScans, 0),
+      trend: calcTrend(dailyActivity.reduce((sum, team) => sum + team.totalScans, 0), previous[3] || 0),
+      icon: QrCodeScannerIcon,
+      iconColor: '#EA580C',
+      bg: '#FFEDD5',
+      border: '#FED7AA',
+      circleBg: '#FED7AA',
+      error: errors.activity,
+    },
+    {
+      label: 'Teams Recorded Scans',
+      value: dailyActivity.filter((team) => team.totalScans > 0).length,
+      trend: calcTrend(dailyActivity.filter((team) => team.totalScans > 0).length, previous[4] || 0),
+      icon: GroupsIcon,
+      iconColor: '#7C3AED',
+      bg: '#F3E8FF',
+      border: '#E9D5FF',
+      circleBg: '#E9D5FF',
+      error: errors.activity,
+    },
   ];
+
   return <Box ref={summaryCaptureRef} sx={{
     minHeight: '100%', bgcolor: t.background, color: t.text, p: { xs: 2, lg: 3 },
     fontFamily: 'Inter, Arial, sans-serif', fontStyle: 'normal', fontVariantNumeric: 'tabular-nums',
@@ -392,7 +458,7 @@ export default function AdminDashboard() {
     '@keyframes dashboardReveal': { from: { opacity: 0 }, to: { opacity: 1 } },
     '@media (prefers-reduced-motion: reduce)': { '& *, & .dashboard-chart-mark': { animation: 'none', transition: 'none' } },
   }}>
-    <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'center' }} gap={2} sx={{ mb: 2 }}>
+    <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', lg: 'center' }} gap={2} sx={{ mb: 2.5 }}>
       <Box><Typography component="h1" sx={{ fontSize: { xs: 23, md: 27 }, fontWeight: 750, letterSpacing: '-.6px', color: t.heading }}>Parts Audit Summary</Typography></Box>
       <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
         <Chip icon={<CalendarMonthIcon />} label={formatDate(appliedRange.from) + ' – ' + formatDate(appliedRange.to)} onClick={changeDateRange} variant="outlined" sx={{ bgcolor: t.surface, borderColor: t.border, fontSize: 12 }} />
@@ -404,16 +470,114 @@ export default function AdminDashboard() {
     </Stack>
     {customOpen && <Stack data-html2canvas-ignore="true" direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ mb: 2 }}><TextField inputRef={dateInputRef} label="From" type="date" size="small" value={fromDate} onChange={(event) => setFromDate(event.target.value)} InputLabelProps={{ shrink: true }} /><TextField label="To" type="date" size="small" value={toDate} onChange={(event) => setToDate(event.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ min: fromDate }} /><Button variant="contained" disableElevation disabled={!fromDate || !toDate || fromDate > toDate} onClick={() => { setPreset('Custom'); applyRange({ from: fromDate, to: toDate }); }}>Apply range</Button></Stack>}
     {copyFeedback && <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 12, mb: 1, color: copyFeedback.startsWith('Unable') ? t.danger : t.success }}>{copyFeedback}</Typography>}
+
+    {/* 5 Compact Horizontal Stat Cards - Pre-revert Design */}
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
+        gap: 2,
+        mb: 2.5,
+      }}
+    >
+      {statCards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <Box
+            key={card.label}
+            sx={{
+              bgcolor: card.bg,
+              borderRadius: 3.5,
+              p: '14px 18px',
+              border: `1px solid ${card.border}`,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.75,
+              minHeight: 76,
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.06)',
+              },
+            }}
+          >
+            {/* Circular Icon with Matching Filled Tint */}
+            <Box
+              sx={{
+                width: 50,
+                height: 50,
+                borderRadius: '50%',
+                bgcolor: card.circleBg,
+                color: card.iconColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Icon sx={{ fontSize: 26 }} />
+            </Box>
+
+            {/* Text content: Title above, Value + Trend below */}
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#1E293B',
+                  lineHeight: 1.2,
+                  mb: 0.35,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {card.label}
+              </Typography>
+
+              <Stack direction="row" alignItems="baseline" spacing={1}>
+                {isDataLoading ? (
+                  <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#0F172A', lineHeight: 1.15 }}>—</Typography>
+                ) : card.error ? (
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#DC2626' }}>Unavailable</Typography>
+                ) : (
+                  <>
+                    <Typography
+                      sx={{
+                        fontSize: 22,
+                        fontWeight: 800,
+                        color: '#0F172A',
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {numberFormat(card.value)}
+                    </Typography>
+
+                    <Stack direction="row" alignItems="center" spacing={0.25}>
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          fontWeight: 750,
+                          color: card.trend.isUp ? '#059669' : '#DC2626',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                        }}
+                      >
+                        {card.trend.isUp ? '▲' : '▼'} {card.trend.pct}
+                      </Typography>
+                    </Stack>
+                  </>
+                )}
+              </Stack>
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+
     <Box sx={{ bgcolor: t.surface, border: `1px solid ${t.border}`, borderRadius: 4, boxShadow: t.shadow, overflow: 'hidden' }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, borderBottom: `1px solid ${t.border}` }}>
-        {metrics.map((metric, i) => <Box key={metric.label} component="section" sx={{ px: { xs: 2, md: 2.5 }, py: 2, minWidth: 0, borderRight: { xs: i % 2 === 0 ? `1px solid ${t.border}` : 'none', lg: i < 4 ? `1px solid ${t.border}` : 'none' }, borderBottom: { xs: i < 4 ? `1px solid ${t.border}` : 'none', lg: 'none' } }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography sx={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '.18px', textTransform: 'uppercase' }}>{metric.label}</Typography>
-            {metric.caption && <Typography sx={{ fontSize: 10, color: t.primary, fontWeight: 650, bgcolor: '#EEF4FF', px: 0.75, py: 0.15, borderRadius: 1 }}>{metric.caption}</Typography>}
-          </Stack>
-          {isDataLoading ? <Box sx={{ height: 36, width: '55%', bgcolor: '#E8EFF8', borderRadius: 1.5, mt: 1 }} /> : metric.error ? <Typography sx={{ mt: 1, fontSize: 12, color: t.danger }}>Unavailable</Typography> : <Typography sx={{ mt: .5, fontSize: { xs: 24, md: 29 }, lineHeight: 1.1, fontWeight: 780, letterSpacing: '-1px', color: metric.value ? t.heading : t.muted }}>{numberFormat(metric.value)}</Typography>}
-        </Box>)}
-      </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
         <Box component="section" sx={{ gridColumn: { xs: 'span 12', lg: 'span 6' }, p: { xs: 2, md: 3 }, borderBottom: `1px solid ${t.border}` }}>
