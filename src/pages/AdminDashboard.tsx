@@ -946,10 +946,11 @@ export default function AdminDashboard() {
                 display: 'grid',
                 gridTemplateColumns: {
                   xs: '1fr',
-                  sm: count === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                  md: `repeat(${cols}, minmax(0, 1fr))`,
+                  sm: count === 1 ? 'minmax(320px, 480px)' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                  md: count === 1 ? 'minmax(320px, 480px)' : 'repeat(auto-fill, minmax(340px, 1fr))',
                 },
-                gap: 1.75,
+                gap: 2,
+                alignItems: 'start',
               }}
             >
               {visibleTeams.map((team) => {
@@ -969,8 +970,8 @@ export default function AdminDashboard() {
                       p: 2,
                       display: 'flex',
                       flexDirection: 'column',
-                      justifyContent: 'space-between',
                       minWidth: 0,
+                      maxWidth: count === 1 ? 520 : 'none',
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       '&::before': {
                         content: '""',
@@ -996,9 +997,9 @@ export default function AdminDashboard() {
                             <Box
                               sx={{
                                 px: 0.85,
-                                py: 0.15,
+                                py: 0.2,
                                 borderRadius: '999px',
-                                fontSize: 9.5,
+                                fontSize: 10,
                                 fontWeight: 800,
                                 bgcolor: typeStyle.bg,
                                 color: typeStyle.color,
@@ -1011,7 +1012,7 @@ export default function AdminDashboard() {
                             </Box>
                             <Typography
                               sx={{
-                                fontSize: 14,
+                                fontSize: 14.5,
                                 fontWeight: 800,
                                 color: '#0F172A',
                                 lineHeight: 1.25,
@@ -1025,11 +1026,12 @@ export default function AdminDashboard() {
 
                           {/* Location subtitle */}
                           <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <LocationOnIcon sx={{ fontSize: 12.5, color: '#94A3B8', flexShrink: 0 }} />
+                            <LocationOnIcon sx={{ fontSize: 13, color: '#94A3B8', flexShrink: 0 }} />
                             <Typography
                               sx={{
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 color: '#64748B',
+                                fontWeight: 550,
                               }}
                               noWrap
                               title={team.location || ''}
@@ -1043,13 +1045,13 @@ export default function AdminDashboard() {
                           {hasScans ? (
                             <Box
                               sx={{
-                                px: 1,
-                                py: 0.3,
+                                px: 1.1,
+                                py: 0.35,
                                 borderRadius: '999px',
                                 bgcolor: '#EFF6FF',
                                 color: '#1D4ED8',
                                 border: '1px solid #BFDBFE',
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: 800,
                                 whiteSpace: 'nowrap',
                                 display: 'inline-flex',
@@ -1057,7 +1059,7 @@ export default function AdminDashboard() {
                                 gap: 0.5,
                               }}
                             >
-                              <QrCodeScannerIcon sx={{ fontSize: 12 }} />
+                              <QrCodeScannerIcon sx={{ fontSize: 12.5 }} />
                               {numberFormat(team.totalScans)} scans
                             </Box>
                           ) : (
@@ -1069,7 +1071,7 @@ export default function AdminDashboard() {
                                 bgcolor: '#F8FAFC',
                                 color: '#64748B',
                                 border: '1px solid #E2E8F0',
-                                fontSize: 10.5,
+                                fontSize: 11,
                                 fontWeight: 650,
                                 whiteSpace: 'nowrap',
                               }}
@@ -1087,7 +1089,7 @@ export default function AdminDashboard() {
                               }}
                               disabled={copyingTeamId === team.teamId}
                               sx={{
-                                p: 0.35,
+                                p: 0.4,
                                 color: '#64748B',
                                 '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' },
                               }}
@@ -1100,9 +1102,9 @@ export default function AdminDashboard() {
                     </Box>
 
                     {/* User Activity Section */}
-                    <Box sx={{ pt: 1.25, borderTop: '1px dashed #E2E8F0', minHeight: 48 }}>
-                      <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mb: 0.85 }}>
-                        <PersonIcon sx={{ fontSize: 12.5, color: '#64748B' }} />
+                    <Box sx={{ pt: 1.25, borderTop: '1px dashed #E2E8F0' }}>
+                      <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mb: 1 }}>
+                        <PersonIcon sx={{ fontSize: 13, color: '#64748B' }} />
                         <Typography
                           sx={{
                             fontSize: 10,
@@ -1121,104 +1123,59 @@ export default function AdminDashboard() {
                           No auditors assigned
                         </Typography>
                       ) : (
-                        <Stack spacing={0.6}>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                           {team.members.map((member) => {
-                            const hasMemberScans = member.scanCount > 0;
-                            const initial = member.name ? member.name.charAt(0).toUpperCase() : '?';
+                            const active = member.scanCount > 0;
                             return (
                               <Box
                                 key={member.id}
                                 sx={{
-                                  display: 'flex',
+                                  display: 'inline-flex',
                                   alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  p: '5px 9px',
-                                  borderRadius: 2,
-                                  bgcolor: hasMemberScans ? '#F8FAFC' : '#FAFAFA',
-                                  border: `1px solid ${hasMemberScans ? '#E2E8F0' : '#F1F5F9'}`,
+                                  gap: 0.6,
+                                  px: 1,
+                                  py: 0.35,
+                                  borderRadius: '999px',
+                                  border: `1px solid ${active ? '#86EFAC' : '#E2E8F0'}`,
+                                  bgcolor: active ? '#F0FDF4' : '#F8FAFC',
                                   transition: 'all 0.15s ease',
                                   '&:hover': {
+                                    borderColor: active ? '#22C55E' : '#CBD5E1',
                                     bgcolor: '#FFFFFF',
-                                    borderColor: hasMemberScans ? '#CBD5E1' : '#E2E8F0',
-                                    boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+                                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                                   },
                                 }}
                               >
-                                {/* Left: Initial avatar + Name */}
-                                <Stack direction="row" alignItems="center" spacing={0.85} sx={{ minWidth: 0, pr: 1 }}>
-                                  <Box
-                                    sx={{
-                                      width: 20,
-                                      height: 20,
-                                      borderRadius: '50%',
-                                      bgcolor: hasMemberScans ? '#EFF6FF' : '#F1F5F9',
-                                      color: hasMemberScans ? '#004F98' : '#64748B',
-                                      fontSize: 10,
-                                      fontWeight: 800,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    {initial}
-                                  </Box>
-                                  <Typography
-                                    sx={{
-                                      fontSize: 11.5,
-                                      fontWeight: hasMemberScans ? 700 : 550,
-                                      color: hasMemberScans ? '#0F172A' : '#475569',
-                                    }}
-                                    noWrap
-                                    title={member.name}
-                                  >
-                                    {member.name}
-                                  </Typography>
-                                </Stack>
-
-                                {/* Right: Scans count badge */}
-                                {hasMemberScans ? (
-                                  <Box
-                                    sx={{
-                                      fontSize: 10.5,
-                                      fontWeight: 800,
-                                      color: '#047857',
-                                      bgcolor: '#ECFDF5',
-                                      border: '1px solid #A7F3D0',
-                                      px: 0.8,
-                                      py: 0.1,
-                                      borderRadius: '999px',
-                                      flexShrink: 0,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 0.35,
-                                    }}
-                                  >
-                                    <span>{numberFormat(member.scanCount)}</span>
-                                    <Typography component="span" sx={{ fontSize: 9, fontWeight: 650, opacity: 0.85 }}>
-                                      scans
-                                    </Typography>
-                                  </Box>
-                                ) : (
-                                  <Typography
-                                    sx={{
-                                      fontSize: 10.5,
-                                      fontWeight: 650,
-                                      color: '#94A3B8',
-                                      bgcolor: '#F1F5F9',
-                                      px: 0.75,
-                                      py: 0.1,
-                                      borderRadius: '999px',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    0
-                                  </Typography>
-                                )}
+                                <PersonIcon sx={{ fontSize: 13, color: active ? '#16A34A' : '#94A3B8' }} />
+                                <Typography
+                                  sx={{
+                                    fontSize: 11.5,
+                                    fontWeight: active ? 750 : 550,
+                                    color: active ? '#14532D' : '#475569',
+                                  }}
+                                  noWrap
+                                  title={member.name}
+                                >
+                                  {member.name}
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    px: 0.6,
+                                    py: 0.05,
+                                    borderRadius: '999px',
+                                    bgcolor: active ? '#16A34A' : '#E2E8F0',
+                                    color: active ? '#FFFFFF' : '#64748B',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {numberFormat(member.scanCount)}
+                                </Box>
                               </Box>
                             );
                           })}
-                        </Stack>
+                        </Box>
                       )}
                     </Box>
                   </Box>
