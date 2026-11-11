@@ -437,6 +437,7 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
   const max = Math.max(1, ...sorted.map((item) => item.count));
   const parentTotals = new Map<string, number>();
   const groups = new Map<string, Point[]>();
+
   sorted.forEach((item) => {
     const [parent, ...child] = item.label.split(' · ');
     parentTotals.set(parent, (parentTotals.get(parent) || 0) + item.count);
@@ -447,16 +448,203 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
       groups.set(parent, []);
     }
   });
-  const bar = (item: Point, parentMax: number) => <Box key={item.label} sx={{ py: .75 }}>
-    <Stack direction="row" justifyContent="space-between" gap={1} sx={{ mb: .75 }}><Typography sx={{ fontSize: 12, fontWeight: 550, overflowWrap: 'anywhere' }}>{item.label}</Typography><Typography sx={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{number(item.count)}</Typography></Stack>
-    <Box role="img" aria-label={`${item.label}: ${item.count} teams`} sx={{ height: 10, borderRadius: 5, bgcolor: t.background }}><Box className="dashboard-chart-mark" sx={{ height: '100%', width: `${item.count / parentMax * 100}%`, borderRadius: 5, background: `linear-gradient(90deg, ${t.primary}, ${t.primaryLight})` }} /></Box>
-  </Box>;
-  return <>
-    <ChartHeading title="Audit Portfolio Composition" action={<Stack direction="row"><Button size="small" aria-pressed={!grouped} variant={!grouped ? 'outlined' : 'text'} onClick={() => setGrouped(false)}>Bars</Button><Button size="small" aria-pressed={grouped} variant={grouped ? 'outlined' : 'text'} onClick={() => setGrouped(true)}>Grouped</Button></Stack>} />
-    <ChartState {...state} empty={!total}>
-      {grouped ? <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>{[...groups].map(([parent, children]) => <Box key={parent} sx={{ p: 1.5, bgcolor: '#F8FAFE', borderRadius: 2, borderLeft: `3px solid ${t.primary}` }}><Typography sx={{ fontSize: 13, fontWeight: 700, mb: children.length ? .5 : 0 }}>{parent} <Box component="span" sx={{ float: 'right', color: t.muted }}>{parentTotals.get(parent) || 0}</Box></Typography>{children.map((item) => bar(item, max))}</Box>)}</Box> : <Stack gap={.75}>{sorted.map((item) => bar(item, max))}</Stack>}
-    </ChartState>
-  </>;
+
+  const getBrandTheme = (label: string) => {
+    const upper = label.toUpperCase();
+    if (upper.includes('TATA')) {
+      return { color: '#D35400', light: '#FED7AA', grad: 'linear-gradient(90deg, #EA580C, #F97316)' };
+    }
+    if (upper.includes('3W')) {
+      return { color: '#0F766E', light: '#99F6E4', grad: 'linear-gradient(90deg, #0F766E, #14B8A6)' };
+    }
+    if (upper.includes('TVS')) {
+      return { color: '#004F98', light: '#BFDBFE', grad: 'linear-gradient(90deg, #004F98, #3B82F6)' };
+    }
+    return { color: '#6366F1', light: '#DDD6FE', grad: 'linear-gradient(90deg, #6366F1, #818CF8)' };
+  };
+
+  const renderProgressRow = (item: Point, parentMax: number) => {
+    const theme = getBrandTheme(item.label);
+    const pct = total > 0 ? ((item.count / total) * 100).toFixed(0) : '0';
+
+    return (
+      <Box
+        key={item.label}
+        sx={{
+          p: '10px 14px',
+          borderRadius: 2.5,
+          bgcolor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          transition: 'all 0.2s',
+          '&:hover': {
+            borderColor: theme.light,
+            boxShadow: '0 3px 8px rgba(0,0,0,0.04)',
+            transform: 'translateY(-1px)',
+          },
+        }}
+      >
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Box
+              sx={{
+                width: 9,
+                height: 9,
+                borderRadius: '50%',
+                bgcolor: theme.color,
+                boxShadow: `0 0 6px ${theme.color}66`,
+                flexShrink: 0,
+              }}
+            />
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1E293B', overflowWrap: 'anywhere' }}>
+              {item.label}
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
+              {number(item.count)}
+            </Typography>
+            <Box
+              sx={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: theme.color,
+                bgcolor: `${theme.color}14`,
+                px: 0.85,
+                py: 0.15,
+                borderRadius: '999px',
+              }}
+            >
+              {pct}%
+            </Box>
+          </Stack>
+        </Stack>
+
+        {/* Smooth Track with Gradient Fill */}
+        <Box
+          role="img"
+          aria-label={`${item.label}: ${item.count} teams (${pct}%)`}
+          sx={{
+            height: 7,
+            borderRadius: '999px',
+            bgcolor: '#F1F5F9',
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            className="dashboard-chart-mark"
+            sx={{
+              height: '100%',
+              width: `${(item.count / parentMax) * 100}%`,
+              borderRadius: '999px',
+              background: theme.grad,
+              transition: 'width 0.4s ease-out',
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  };
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography component="h2" sx={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>
+          Audit Portfolio Composition
+        </Typography>
+
+        {/* Modern Pill Switcher */}
+        <Stack
+          direction="row"
+          sx={{
+            bgcolor: '#F1F5F9',
+            borderRadius: '999px',
+            p: 0.35,
+            border: '1px solid #E2E8F0',
+          }}
+        >
+          <Button
+            size="small"
+            aria-pressed={!grouped}
+            onClick={() => setGrouped(false)}
+            sx={{
+              minWidth: 48,
+              height: 26,
+              fontSize: 11,
+              fontWeight: !grouped ? 750 : 550,
+              bgcolor: !grouped ? '#004F98' : 'transparent',
+              color: !grouped ? '#FFFFFF' : '#64748B',
+              boxShadow: !grouped ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
+              borderRadius: '999px',
+              textTransform: 'none',
+              px: 1.25,
+              '&:hover': {
+                bgcolor: !grouped ? '#004F98' : 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            Bars
+          </Button>
+          <Button
+            size="small"
+            aria-pressed={grouped}
+            onClick={() => setGrouped(true)}
+            sx={{
+              minWidth: 54,
+              height: 26,
+              fontSize: 11,
+              fontWeight: grouped ? 750 : 550,
+              bgcolor: grouped ? '#004F98' : 'transparent',
+              color: grouped ? '#FFFFFF' : '#64748B',
+              boxShadow: grouped ? '0 1px 3px rgba(0,79,152,0.25)' : 'none',
+              borderRadius: '999px',
+              textTransform: 'none',
+              px: 1.25,
+              '&:hover': {
+                bgcolor: grouped ? '#004F98' : 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            Grouped
+          </Button>
+        </Stack>
+      </Stack>
+
+      <ChartState {...state} empty={!total}>
+        {grouped ? (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            {[...groups].map(([parent, children]) => {
+              const theme = getBrandTheme(parent);
+              return (
+                <Box
+                  key={parent}
+                  sx={{
+                    p: 1.75,
+                    bgcolor: '#FFFFFF',
+                    borderRadius: 3,
+                    border: '1px solid #E2E8F0',
+                    borderLeft: `4px solid ${theme.color}`,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A', mb: children.length ? 1 : 0 }}>
+                    {parent}{' '}
+                    <Box component="span" sx={{ float: 'right', color: theme.color, fontWeight: 800 }}>
+                      {parentTotals.get(parent) || 0}
+                    </Box>
+                  </Typography>
+                  <Stack gap={1}>{children.map((item) => renderProgressRow(item, max))}</Stack>
+                </Box>
+              );
+            })}
+          </Box>
+        ) : (
+          <Stack gap={1.25}>{sorted.map((item) => renderProgressRow(item, max))}</Stack>
+        )}
+      </ChartState>
+    </Box>
+  );
 }
 
 export function AuditStateComparison({ followUps, completions, ...state }: StateProps & { followUps: { state?: string }[]; completions: { state?: string }[] }) {
