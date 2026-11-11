@@ -1,5 +1,11 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import PersonIcon from '@mui/icons-material/Person';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import { ChartHeading, ChartState, LegendToggle } from './DashboardPrimitives';
 import { dashboardTokens as t } from './dashboardTheme';
 
@@ -92,169 +98,602 @@ export function AttendanceChart({
   notSet?: number;
   totalStaff?: number;
 }) {
-  const categories = [
-    { label: 'Present', count: present, color: '#159C8C', lightColor: '#D3F4EE' },
-    { label: 'Absent', count: absent, color: '#BE6653', lightColor: '#FBE8E5' },
-    { label: 'Comp-off', count: compoff, color: '#D97706', lightColor: '#FEF3C7' },
-    { label: 'Paid Leave', count: paidLeave, color: '#2563EB', lightColor: '#DBEAFE' },
-    { label: 'Travel', count: travel, color: '#7C3AED', lightColor: '#EDE9FE' },
-  ];
-
   const totalDetermined = present + absent + compoff + paidLeave + travel;
-  const workforceTotal = totalStaff !== undefined ? totalStaff : (totalDetermined + notSet);
+  const workforceTotal = totalStaff !== undefined && totalStaff > 0 ? totalStaff : (totalDetermined + notSet);
   const activeAvailability = workforceTotal > 0 ? ((present + travel) / workforceTotal) * 100 : 0;
-  const circumference = 2 * Math.PI * 64;
+  const circumference = 2 * Math.PI * 68;
 
-  // Build SVG multi-segment donut
-  let accumulatedPercent = 0;
-  const donutSegments = categories
-    .filter((cat) => cat.count > 0 && workforceTotal > 0)
-    .map((cat) => {
-      const share = (cat.count / workforceTotal) * 100;
-      const strokeDashoffset = -1 * (circumference * accumulatedPercent / 100);
-      const strokeDasharray = `${circumference * share / 100} ${circumference}`;
-      accumulatedPercent += share;
-      return { ...cat, strokeDashoffset, strokeDasharray, share };
-    });
+  // Active presence slice
+  const availableShare = Math.min(100, Math.max(0, activeAvailability));
+  const activeStrokeDash = `${(circumference * availableShare) / 100} ${circumference}`;
+
+  const calcPercent = (val: number) => (workforceTotal > 0 ? ((val / workforceTotal) * 100).toFixed(1) : '0.0');
 
   return (
-    <>
-      <ChartHeading
-        title="Attendance & Workforce Availability"
-      />
+    <Box sx={{ width: '100%' }}>
+      <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 2.5 }}>
+        <Box sx={{ bgcolor: '#EFF6FF', p: 0.75, borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <PersonIcon sx={{ fontSize: 22, color: '#1D4ED8' }} />
+        </Box>
+        <Typography component="h2" sx={{ fontSize: { xs: 16, md: 18 }, fontWeight: 750, color: '#0F172A' }}>
+          Attendance &amp; Workforce Availability
+        </Typography>
+      </Stack>
+
       <ChartState {...state} empty={workforceTotal === 0}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Top Analytical Donut */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Box sx={{ position: 'relative', width: 150, height: 150, flexShrink: 0 }}>
-              <svg viewBox="0 0 180 180" width="150" height="150" role="img" aria-label="Workforce attendance chart">
-                <circle cx="90" cy="90" r="64" fill="none" stroke="#E9EFF6" strokeWidth="18" />
-                {donutSegments.map((seg) => (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '190px 1fr 1fr' },
+            gap: { xs: 2.5, md: 3 },
+            alignItems: 'center',
+            p: { xs: 1.5, md: 2.5 },
+            bgcolor: '#FFFFFF',
+            borderRadius: 3,
+            minHeight: 220,
+          }}
+        >
+          {/* Left: Donut with availability percentage */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRight: { sm: '1px solid #F1F5F9' },
+              pr: { sm: 2 },
+            }}
+          >
+            <Box
+              sx={{
+                position: 'relative',
+                width: 154,
+                height: 154,
+                p: 1,
+                borderRadius: '50%',
+                bgcolor: '#F8FAFC',
+                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.04)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg viewBox="0 0 170 170" width="144" height="144" role="img" aria-label="Workforce attendance chart">
+                <circle cx="85" cy="85" r="66" fill="none" stroke="#E2E8F0" strokeWidth="18" />
+                {availableShare > 0 && (
                   <circle
-                    key={seg.label}
                     className="dashboard-chart-mark"
-                    cx="90"
-                    cy="90"
-                    r="64"
+                    cx="85"
+                    cy="85"
+                    r="66"
                     fill="none"
-                    stroke={seg.color}
+                    stroke="#10B981"
                     strokeWidth="18"
-                    strokeDasharray={seg.strokeDasharray}
-                    strokeDashoffset={seg.strokeDashoffset}
-                    transform="rotate(-90 90 90)"
+                    strokeDasharray={activeStrokeDash}
+                    strokeDashoffset={0}
+                    strokeLinecap="butt"
+                    transform="rotate(-90 85 85)"
                   />
-                ))}
-                <text x="90" y="85" textAnchor="middle" fill={t.heading} fontSize="26" fontWeight="750">
-                  {activeAvailability.toFixed(1)}%
-                </text>
-                <text x="90" y="105" textAnchor="middle" fill={t.muted} fontSize="9.5" fontWeight="600" letterSpacing="0.5px">
-                  AVAILABLE
-                </text>
+                )}
               </svg>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography sx={{ fontSize: 25, fontWeight: 850, color: '#0F172A', lineHeight: 1.1 }}>
+                  {activeAvailability.toFixed(1)}%
+                </Typography>
+                <Typography sx={{ fontSize: 10, fontWeight: 750, color: '#64748B', letterSpacing: '0.8px', mt: 0.5 }}>
+                  AVAILABLE
+                </Typography>
+              </Box>
             </Box>
           </Box>
 
-          {/* Unified Multi-Segment Bar */}
-          <Box
-            aria-hidden="true"
-            sx={{
-              height: 7,
-              display: 'flex',
-              borderRadius: 3.5,
-              overflow: 'hidden',
-              bgcolor: '#E9EFF6',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
-            }}
-          >
-            {categories.map((cat) => (
+          {/* Middle Column: Present & Absent */}
+          <Stack spacing={2} sx={{ width: '100%' }}>
+            {/* Present Card */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #ECFDF5 0%, #E0FBEF 100%)',
+                border: '1.5px solid #A7F3D0',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.75,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(16, 185, 129, 0.15)',
+                },
+              }}
+            >
               <Box
-                key={cat.label}
                 sx={{
-                  width: workforceTotal > 0 ? `${(cat.count / workforceTotal) * 100}%` : '0%',
-                  bgcolor: cat.color,
-                  transition: 'width 0.4s ease',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2.25,
+                  bgcolor: '#FFFFFF',
+                  color: '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(5, 150, 105, 0.15)',
+                  flexShrink: 0,
                 }}
-                title={`${cat.label}: ${cat.count}`}
-              />
-            ))}
-          </Box>
+              >
+                <PersonIcon sx={{ fontSize: 24 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#047857', letterSpacing: '0.2px' }}>Present</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={1}>
+                  <Typography sx={{ fontSize: 22, fontWeight: 850, color: '#065F46' }}>
+                    {number(present)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#059669' }}>
+                    ({calcPercent(present)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
 
-          {/* Analytical Category Breakdown Grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 1 }}>
-            {categories.map((cat) => {
-              const share = workforceTotal > 0 ? (cat.count / workforceTotal) * 100 : 0;
-              return (
-                <Box
-                  key={cat.label}
-                  sx={{
-                    p: 1.25,
-                    borderRadius: 2,
-                    bgcolor: '#FFFFFF',
-                    border: `1px solid ${t.border}`,
-                    borderLeft: `3.5px solid ${cat.color}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: t.heading }}>
-                      {cat.label}
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        bgcolor: cat.color,
-                      }}
-                    />
-                  </Stack>
-                  <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mt: 0.75 }}>
-                    <Typography sx={{ fontSize: 16, fontWeight: 750, color: cat.color }}>
-                      {number(cat.count)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 11, fontWeight: 600, color: t.muted }}>
-                      {share.toFixed(1)}%
-                    </Typography>
-                  </Stack>
-                </Box>
-              );
-            })}
-          </Box>
+            {/* Absent Card */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+                border: '1.5px solid #FECACA',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.75,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(239, 68, 68, 0.15)',
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2.25,
+                  bgcolor: '#FFFFFF',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <PersonIcon sx={{ fontSize: 24 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#B91C1C', letterSpacing: '0.2px' }}>Absent</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={1}>
+                  <Typography sx={{ fontSize: 22, fontWeight: 850, color: '#991B1B' }}>
+                    {number(absent)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#DC2626' }}>
+                    ({calcPercent(absent)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+          </Stack>
+
+          {/* Right Column: Comp-off, Paid Leave, Travel */}
+          <Stack spacing={1.5} sx={{ width: '100%' }}>
+            {/* Comp-off Card */}
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                border: '1.5px solid #FDE68A',
+                boxShadow: '0 3px 10px rgba(217, 119, 6, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 5px 14px rgba(217, 119, 6, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                  bgcolor: '#FFFFFF',
+                  color: '#D97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(217, 119, 6, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <AccessTimeIcon sx={{ fontSize: 20 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#92400E' }}>Comp-off</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={1}>
+                  <Typography sx={{ fontSize: 17, fontWeight: 850, color: '#78350F' }}>
+                    {number(compoff)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#B45309' }}>
+                    ({calcPercent(compoff)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+
+            {/* Paid Leave Card */}
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+                border: '1.5px solid #BFDBFE',
+                boxShadow: '0 3px 10px rgba(37, 99, 235, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 5px 14px rgba(37, 99, 235, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                  bgcolor: '#FFFFFF',
+                  color: '#2563EB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <CalendarMonthIcon sx={{ fontSize: 20 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#1E40AF' }}>Paid Leave</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={1}>
+                  <Typography sx={{ fontSize: 17, fontWeight: 850, color: '#1E3A8A' }}>
+                    {number(paidLeave)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#2563EB' }}>
+                    ({calcPercent(paidLeave)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+
+            {/* Travel Card */}
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+                border: '1.5px solid #E9D5FF',
+                boxShadow: '0 3px 10px rgba(147, 51, 234, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-1.5px)', boxShadow: '0 5px 14px rgba(147, 51, 234, 0.12)' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                  bgcolor: '#FFFFFF',
+                  color: '#9333EA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(147, 51, 234, 0.15)',
+                  flexShrink: 0,
+                }}
+              >
+                <FlightTakeoffIcon sx={{ fontSize: 20 }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#6B21A8' }}>Travel</Typography>
+                <Stack direction="row" alignItems="baseline" spacing={1}>
+                  <Typography sx={{ fontSize: 17, fontWeight: 850, color: '#581C87' }}>
+                    {number(travel)}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: '#7E22CE' }}>
+                    ({calcPercent(travel)}%)
+                  </Typography>
+                </Stack>
+              </Box>
+            </Box>
+          </Stack>
         </Box>
       </ChartState>
-    </>
+    </Box>
   );
 }
 
-export function RankedChart({ items, ...state }: StateProps & { items: Point[] }) {
-  const [grouped, setGrouped] = useState(false);
-  const sorted = [...items].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  const total = sorted.reduce((sum, item) => sum + item.count, 0);
-  const max = Math.max(1, ...sorted.map((item) => item.count));
-  const parentTotals = new Map<string, number>();
-  const groups = new Map<string, Point[]>();
-  sorted.forEach((item) => {
-    const [parent, ...child] = item.label.split(' · ');
-    parentTotals.set(parent, (parentTotals.get(parent) || 0) + item.count);
-    const sub = child.join(' · ').trim();
-    if (sub) {
-      groups.set(parent, [...(groups.get(parent) || []), { label: sub, count: item.count }]);
-    } else if (!groups.has(parent)) {
-      groups.set(parent, []);
+export function RankedChart({
+  items,
+  allItems,
+  ...state
+}: StateProps & {
+  items: Point[];
+  allItems?: Point[];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [useAllSites, setUseAllSites] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState('');
+
+  useEffect(() => {
+    if (!copyFeedback) return;
+    const timeout = window.setTimeout(() => setCopyFeedback(''), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [copyFeedback]);
+
+  async function copyChartImage() {
+    if (!containerRef.current || copying) return;
+    setCopying(true);
+    setCopyFeedback('');
+    try {
+      const canvas = await html2canvas(containerRef.current, {
+        backgroundColor: '#FFFFFF',
+        scale: 2,
+        useCORS: true,
+        onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll<HTMLElement>('.dashboard-chart-mark').forEach((el) => {
+            el.style.animation = 'none';
+            el.style.opacity = '1';
+          });
+        },
+      });
+      const image = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!image || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+        throw new Error('Image copy unavailable');
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': image })]);
+      setCopyFeedback('Portfolio chart copied to clipboard');
+    } catch {
+      setCopyFeedback('Unable to copy portfolio image');
+    } finally {
+      setCopying(false);
     }
-  });
-  const bar = (item: Point, parentMax: number) => <Box key={item.label} sx={{ py: .75 }}>
-    <Stack direction="row" justifyContent="space-between" gap={1} sx={{ mb: .75 }}><Typography sx={{ fontSize: 12, fontWeight: 550, overflowWrap: 'anywhere' }}>{item.label}</Typography><Typography sx={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{number(item.count)}</Typography></Stack>
-    <Box role="img" aria-label={`${item.label}: ${item.count} teams`} sx={{ height: 10, borderRadius: 5, bgcolor: t.background }}><Box className="dashboard-chart-mark" sx={{ height: '100%', width: `${item.count / parentMax * 100}%`, borderRadius: 5, background: `linear-gradient(90deg, ${t.primary}, ${t.primaryLight})` }} /></Box>
-  </Box>;
-  return <>
-    <ChartHeading title="Audit Portfolio Composition" action={<Stack direction="row"><Button size="small" aria-pressed={!grouped} variant={!grouped ? 'outlined' : 'text'} onClick={() => setGrouped(false)}>Bars</Button><Button size="small" aria-pressed={grouped} variant={grouped ? 'outlined' : 'text'} onClick={() => setGrouped(true)}>Grouped</Button></Stack>} />
-    <ChartState {...state} empty={!total}>
-      {grouped ? <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>{[...groups].map(([parent, children]) => <Box key={parent} sx={{ p: 1.5, bgcolor: '#F8FAFE', borderRadius: 2, borderLeft: `3px solid ${t.primary}` }}><Typography sx={{ fontSize: 13, fontWeight: 700, mb: children.length ? .5 : 0 }}>{parent} <Box component="span" sx={{ float: 'right', color: t.muted }}>{parentTotals.get(parent) || 0}</Box></Typography>{children.map((item) => bar(item, max))}</Box>)}</Box> : <Stack gap={.75}>{sorted.map((item) => bar(item, max))}</Stack>}
-    </ChartState>
-  </>;
+  }
+
+  const activeItems = useAllSites && allItems && allItems.length > 0 ? allItems : items;
+
+  interface AggregatedBucket {
+    label: string;
+    count: number;
+    color: string;
+    bg: string;
+  }
+
+  // Group items clearly into primary categories: TVS, TATA, 3W-TVS, and Other
+  const aggregated: AggregatedBucket[] = useMemo(() => {
+    const buckets: Record<string, AggregatedBucket> = {
+      TVS: { label: 'TVS', count: 0, color: '#004F98', bg: '#EFF6FF' },
+      TATA: { label: 'TATA', count: 0, color: '#D35400', bg: '#FFF7ED' },
+      '3W-TVS': { label: '3W-TVS', count: 0, color: '#0F766E', bg: '#F0FDFA' },
+      Other: { label: 'Other', count: 0, color: '#64748B', bg: '#F8FAFC' },
+    };
+
+    activeItems.forEach((item) => {
+      const upper = item.label.toUpperCase();
+      if (upper.includes('3W') || upper.includes('3W-TVS')) {
+        buckets['3W-TVS'].count += item.count;
+      } else if (upper.includes('TATA')) {
+        buckets['TATA'].count += item.count;
+      } else if (upper.includes('TVS')) {
+        buckets['TVS'].count += item.count;
+      } else {
+        buckets['Other'].count += item.count;
+      }
+    });
+
+    const list: AggregatedBucket[] = [buckets['TVS'], buckets['TATA'], buckets['3W-TVS']];
+    if (buckets['Other'].count > 0) {
+      list.push(buckets['Other']);
+    }
+    return list;
+  }, [activeItems]);
+
+  const total = aggregated.reduce((sum: number, item: AggregatedBucket) => sum + item.count, 0);
+  const max = Math.max(1, ...aggregated.map((item: AggregatedBucket) => item.count));
+
+  // Determine Y-axis max rounded nicely
+  const yTicks = [0, Math.ceil(max * 0.33), Math.ceil(max * 0.66), Math.ceil(max * 1.05)];
+  const chartHeight = 160;
+
+  return (
+    <Box ref={containerRef} sx={{ position: 'relative', width: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2.5 }}>
+        <Typography component="h2" sx={{ fontSize: { xs: 16, md: 18 }, fontWeight: 750, color: '#0F172A' }}>
+          Audit Type Distribution
+        </Typography>
+
+        <Stack direction="row" spacing={1} alignItems="center" data-html2canvas-ignore="true" flexWrap="wrap">
+          {allItems && allItems.length > 0 && (
+            <Stack direction="row" sx={{ bgcolor: '#F1F5F9', borderRadius: 2, p: 0.35 }}>
+              <Button
+                size="small"
+                aria-pressed={!useAllSites}
+                onClick={() => setUseAllSites(false)}
+                sx={{
+                  fontSize: 11.5,
+                  py: 0.35,
+                  px: 1,
+                  bgcolor: !useAllSites ? '#FFFFFF' : 'transparent',
+                  color: !useAllSites ? '#004F98' : '#64748B',
+                  boxShadow: !useAllSites ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  fontWeight: !useAllSites ? 750 : 500,
+                  borderRadius: 1.5,
+                }}
+              >
+                Period ({items.reduce((s, x) => s + x.count, 0)})
+              </Button>
+              <Button
+                size="small"
+                aria-pressed={useAllSites}
+                onClick={() => setUseAllSites(true)}
+                sx={{
+                  fontSize: 11.5,
+                  py: 0.35,
+                  px: 1,
+                  bgcolor: useAllSites ? '#FFFFFF' : 'transparent',
+                  color: useAllSites ? '#004F98' : '#64748B',
+                  boxShadow: useAllSites ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  fontWeight: useAllSites ? 750 : 500,
+                  borderRadius: 1.5,
+                }}
+              >
+                All ({allItems.reduce((s, x) => s + x.count, 0)})
+              </Button>
+            </Stack>
+          )}
+
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={copyChartImage}
+            disabled={copying || !total}
+            startIcon={<ContentCopyIcon sx={{ fontSize: 13 }} />}
+            sx={{
+              fontSize: 11.5,
+              py: 0.45,
+              px: 1.25,
+              whiteSpace: 'nowrap',
+              borderColor: '#CBD5E1',
+              color: '#334155',
+              bgcolor: '#FFFFFF',
+              borderRadius: 1.75,
+              '&:hover': { bgcolor: '#F8FAFC', borderColor: '#94A3B8' },
+            }}
+          >
+            {copying ? 'Copying…' : 'Copy'}
+          </Button>
+        </Stack>
+      </Stack>
+
+      {copyFeedback && (
+        <Typography role="status" data-html2canvas-ignore="true" sx={{ fontSize: 11.5, mb: 1, color: copyFeedback.startsWith('Unable') ? t.danger : t.success, fontWeight: 650 }}>
+          {copyFeedback}
+        </Typography>
+      )}
+
+      <ChartState {...state} empty={!total}>
+        <Box sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: '#FFFFFF', borderRadius: 3 }}>
+          {/* Vertical Columns Bar Chart Container */}
+          <Box sx={{ position: 'relative', height: chartHeight + 60, pt: 2, display: 'flex' }}>
+            {/* Y-axis Ticks */}
+            <Box sx={{ width: 44, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pb: 4.5, pr: 1.5 }}>
+              {[...yTicks].reverse().map((tick, i) => (
+                <Typography key={i} sx={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textAlign: 'right' }}>
+                  {tick}
+                </Typography>
+              ))}
+            </Box>
+
+            {/* Chart Area with subtle grid lines */}
+            <Box sx={{ flex: 1, position: 'relative', borderBottom: '2px solid #E2E8F0', borderLeft: '1px solid #E2E8F0' }}>
+              {/* Background Grid Lines */}
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pb: 0.5, pointerEvents: 'none' }}>
+                {yTicks.map((_, i) => (
+                  <Box key={i} sx={{ borderTop: i === 0 ? 'none' : '1px dashed #F1F5F9', width: '100%' }} />
+                ))}
+              </Box>
+
+              {/* Columns container */}
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', px: { xs: 1, md: 3 } }}>
+                {aggregated.map((item) => {
+                  const barHeight = max > 0 ? (item.count / max) * chartHeight : 0;
+                  return (
+                    <Box
+                      key={item.label}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        width: { xs: 55, sm: 80, md: 100 },
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s',
+                        '&:hover': { transform: 'scale(1.03)' },
+                      }}
+                    >
+                      {/* Count value on top of bar */}
+                      <Typography sx={{ fontSize: 13, fontWeight: 800, color: item.color, mb: 0.75 }}>
+                        {number(item.count)}
+                      </Typography>
+
+                      {/* Vertical Column Bar */}
+                      <Box
+                        className="dashboard-chart-mark"
+                        sx={{
+                          width: '100%',
+                          height: Math.max(8, barHeight),
+                          bgcolor: item.color,
+                          borderRadius: '8px 8px 0 0',
+                          boxShadow: `0 4px 12px ${item.color}33`,
+                          transition: 'height 0.4s ease-out',
+                        }}
+                      />
+
+                      {/* Label below axis */}
+                      <Typography
+                        sx={{
+                          fontSize: 12,
+                          fontWeight: 750,
+                          color: '#334155',
+                          mt: 1.25,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.label}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Subtext info */}
+          <Stack direction="row" spacing={3} justifyContent="center" sx={{ mt: 3, pt: 1.5, borderTop: '1px solid #F1F5F9' }}>
+            {aggregated.map((item) => (
+              <Stack key={item.label} direction="row" alignItems="center" spacing={1}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: item.color }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#475569' }}>
+                  {item.label}: <strong style={{ color: '#0F172A' }}>{number(item.count)}</strong> ({total > 0 ? ((item.count / total) * 100).toFixed(1) : 0}%)
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+      </ChartState>
+    </Box>
+  );
 }
 
 export function AuditStateComparison({ followUps, completions, ...state }: StateProps & { followUps: { state?: string }[]; completions: { state?: string }[] }) {
@@ -269,7 +708,7 @@ export function AuditStateComparison({ followUps, completions, ...state }: State
   const max = scaleMax(Math.max(0, ...rows.flatMap(([, counts]) => [counts.follow, counts.complete])));
   return <>
     <ChartHeading title="Audit Records by State" subtitle="Follow-ups and completions recorded in the selected period" />
-    <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>{[{ label: 'Follow-ups', value: followUps.length, color: t.primary }, { label: 'Completions', value: completions.length, color: t.success }].map((item) => <Typography key={item.label} sx={{ fontSize: 12, color: t.muted }}><Box component="span" sx={{ display: 'inline-block', width: 8, height: 8, mr: .75, borderRadius: 1, bgcolor: item.color }} />{item.label} <Box component="strong" sx={{ color: t.heading }}>{state.loading || state.error ? '—' : number(item.value)}</Box></Typography>)}</Stack>
+    <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>{[{ label: 'Follow-ups', value: followUps.length, color: t.primary }, { label: 'Completions', value: t.success }].map((item) => <Typography key={item.label} sx={{ fontSize: 12, color: t.muted }}><Box component="span" sx={{ display: 'inline-block', width: 8, height: 8, mr: .75, borderRadius: 1, bgcolor: item.color }} />{item.label} <Box component="strong" sx={{ color: t.heading }}>{state.loading || state.error ? '—' : number(item.label === 'Follow-ups' ? followUps.length : completions.length)}</Box></Typography>)}</Stack>
     <ChartState {...state} empty={!rows.length}>
       <Stack spacing={1.5}>{rows.map(([name, counts]) => <Box key={name}><Typography sx={{ fontSize: 12, fontWeight: 600, mb: .5 }}>{name}</Typography>{[{ value: counts.follow, label: 'Follow-ups', color: t.primary }, { value: counts.complete, label: 'Completions', color: t.success }].map((series) => <Stack key={series.label} direction="row" alignItems="center" gap={1} sx={{ mb: .5 }}><Typography sx={{ width: 76, fontSize: 10, color: t.muted }}>{series.label}</Typography><Box role="img" aria-label={`${name}, ${series.label}: ${series.value}`} sx={{ flex: 1, height: 10, bgcolor: t.background, borderRadius: 5 }}><Box className="dashboard-chart-mark" sx={{ width: `${series.value / max * 100}%`, height: '100%', bgcolor: series.color, borderRadius: 5 }} /></Box><Typography sx={{ width: 38, textAlign: 'right', fontSize: 12, fontWeight: 650 }}>{number(series.value)}</Typography></Stack>)}</Box>)}</Stack>
     </ChartState>
