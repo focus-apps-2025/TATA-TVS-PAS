@@ -703,7 +703,7 @@ export default function AdminDashboard() {
     </Box>
 
     {/* 2 Main Charts Row - Separated Cards with Depth */}
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 2.5 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 2.5, alignItems: 'start' }}>
       {/* Left: Audit Portfolio Composition Card */}
       <Box
         component="section"

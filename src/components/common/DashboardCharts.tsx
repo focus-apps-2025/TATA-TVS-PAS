@@ -630,35 +630,34 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
 
       <ChartState {...state} empty={!total}>
         {grouped ? (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 1.5,
+              alignItems: 'start',
+            }}
+          >
             {[...groups].map(([parent, children]) => {
               const theme = getBrandTheme(parent);
               const parentCount = parentTotals.get(parent) || 0;
-              const childrenSum = children.reduce((acc, c) => acc + c.count, 0);
-              const directCount = parentCount - childrenSum;
-              const displaySubItems = [
-                ...children,
-                ...(children.length > 0 && directCount > 0
-                  ? [{ label: 'Direct / General', count: directCount }]
-                  : []),
-              ];
 
               return (
                 <Box
                   key={parent}
                   sx={{
-                    p: 2,
+                    p: 1.5,
                     bgcolor: '#FFFFFF',
-                    borderRadius: 3,
+                    borderRadius: 2.75,
                     border: '1px solid #E2E8F0',
-                    boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)',
+                    boxShadow: '0 1px 4px rgba(15, 23, 42, 0.03)',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
                     overflow: 'hidden',
                     '&:hover': {
                       borderColor: theme.light,
-                      boxShadow: '0 6px 18px -4px rgba(15, 23, 42, 0.08)',
-                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px -2px rgba(15, 23, 42, 0.06)',
+                      transform: 'translateY(-1px)',
                     },
                     '&::before': {
                       content: '""',
@@ -672,55 +671,55 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
                   }}
                 >
                   {/* Card Header: Brand Dot + Name + Total Count Pill */}
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.85}>
                       <Box
                         sx={{
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           borderRadius: '50%',
                           bgcolor: theme.color,
-                          boxShadow: `0 0 8px ${theme.color}80`,
+                          boxShadow: `0 0 6px ${theme.color}80`,
                           flexShrink: 0,
                         }}
                       />
-                      <Typography sx={{ fontSize: 14, fontWeight: 750, color: '#0F172A', letterSpacing: '-0.01em' }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A', letterSpacing: '-0.01em' }}>
                         {parent}
                       </Typography>
                     </Stack>
 
                     <Box
                       sx={{
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: 800,
                         color: theme.color,
                         bgcolor: theme.bg,
                         border: `1px solid ${theme.light}`,
-                        px: 1.1,
-                        py: 0.25,
+                        px: 1,
+                        py: 0.15,
                         borderRadius: '999px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 0.5,
+                        gap: 0.4,
                       }}
                     >
                       <span>{number(parentCount)}</span>
-                      <Typography component="span" sx={{ fontSize: 10.5, fontWeight: 600, opacity: 0.85 }}>
+                      <Typography component="span" sx={{ fontSize: 9.5, fontWeight: 600, opacity: 0.85 }}>
                         {parentCount === 1 ? 'team' : 'teams'}
                       </Typography>
                     </Box>
                   </Stack>
 
-                  {/* Group Main Progress Bar (Always present so card is never empty) */}
+                  {/* Group Main Progress Bar */}
                   <Box
                     role="img"
                     aria-label={`${parent}: ${parentCount} teams`}
                     sx={{
-                      height: 7,
+                      height: 6,
                       borderRadius: '999px',
                       bgcolor: '#F1F5F9',
                       overflow: 'hidden',
-                      mb: displaySubItems.length > 0 ? 1.75 : 0,
+                      mb: children.length > 0 ? 1.25 : 0,
                     }}
                   >
                     <Box
@@ -735,42 +734,42 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
                     />
                   </Box>
 
-                  {/* Subcategories (if any) */}
-                  {displaySubItems.length > 0 && (
+                  {/* Subcategories (only when actual subcategories exist) */}
+                  {children.length > 0 && (
                     <Stack
-                      spacing={1}
+                      spacing={0.75}
                       sx={{
-                        mt: 1.5,
-                        pt: 1.5,
+                        mt: 1,
+                        pt: 1,
                         borderTop: '1px dashed #E2E8F0',
                       }}
                     >
-                      {displaySubItems.map((subItem) => (
+                      {children.map((subItem) => (
                         <Box
                           key={subItem.label}
                           sx={{
-                            p: '8px 12px',
-                            borderRadius: 2,
+                            p: '6px 10px',
+                            borderRadius: 1.75,
                             bgcolor: '#F8FAFC',
                             border: '1px solid #F1F5F9',
                           }}
                         >
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
-                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                            <Stack direction="row" alignItems="center" spacing={0.6}>
                               <Box
                                 sx={{
-                                  width: 6,
-                                  height: 6,
+                                  width: 5,
+                                  height: 5,
                                   borderRadius: '50%',
                                   bgcolor: theme.color,
                                   opacity: 0.7,
                                 }}
                               />
-                              <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#334155' }}>
+                              <Typography sx={{ fontSize: 11.5, fontWeight: 650, color: '#334155' }}>
                                 {subItem.label}
                               </Typography>
                             </Stack>
-                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
+                            <Typography sx={{ fontSize: 11.5, fontWeight: 800, color: '#0F172A' }}>
                               {number(subItem.count)}
                             </Typography>
                           </Stack>
@@ -778,7 +777,7 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
                           {/* Subcategory Progress Bar */}
                           <Box
                             sx={{
-                              height: 5,
+                              height: 4,
                               borderRadius: '999px',
                               bgcolor: '#E2E8F0',
                               overflow: 'hidden',
