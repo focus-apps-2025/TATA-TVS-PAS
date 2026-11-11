@@ -452,20 +452,41 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
   const getBrandTheme = (label: string) => {
     const upper = label.toUpperCase();
     if (upper.includes('TATA')) {
-      return { color: '#D35400', light: '#FED7AA', grad: 'linear-gradient(90deg, #EA580C, #F97316)' };
+      return {
+        color: '#D35400',
+        bg: '#FFF7ED',
+        light: '#FED7AA',
+        grad: 'linear-gradient(90deg, #EA580C, #F97316)',
+      };
     }
     if (upper.includes('3W')) {
-      return { color: '#0F766E', light: '#99F6E4', grad: 'linear-gradient(90deg, #0F766E, #14B8A6)' };
+      return {
+        color: '#0F766E',
+        bg: '#F0FDFA',
+        light: '#99F6E4',
+        grad: 'linear-gradient(90deg, #0F766E, #14B8A6)',
+      };
     }
     if (upper.includes('TVS')) {
-      return { color: '#004F98', light: '#BFDBFE', grad: 'linear-gradient(90deg, #004F98, #3B82F6)' };
+      return {
+        color: '#004F98',
+        bg: '#EFF6FF',
+        light: '#BFDBFE',
+        grad: 'linear-gradient(90deg, #004F98, #3B82F6)',
+      };
     }
-    return { color: '#6366F1', light: '#DDD6FE', grad: 'linear-gradient(90deg, #6366F1, #818CF8)' };
+    return {
+      color: '#6366F1',
+      bg: '#EEF2FF',
+      light: '#DDD6FE',
+      grad: 'linear-gradient(90deg, #6366F1, #818CF8)',
+    };
   };
+
+  const maxParent = Math.max(1, ...[...parentTotals.values()]);
 
   const renderProgressRow = (item: Point, parentMax: number) => {
     const theme = getBrandTheme(item.label);
-    const pct = total > 0 ? ((item.count / total) * 100).toFixed(0) : '0';
 
     return (
       <Box
@@ -501,30 +522,26 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
             </Typography>
           </Stack>
 
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
-              {number(item.count)}
-            </Typography>
-            <Box
-              sx={{
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: theme.color,
-                bgcolor: `${theme.color}14`,
-                px: 0.85,
-                py: 0.15,
-                borderRadius: '999px',
-              }}
-            >
-              {pct}%
-            </Box>
-          </Stack>
+          <Box
+            sx={{
+              fontSize: 12.5,
+              fontWeight: 800,
+              color: theme.color,
+              bgcolor: theme.bg,
+              border: `1px solid ${theme.light}`,
+              px: 1.1,
+              py: 0.2,
+              borderRadius: '999px',
+            }}
+          >
+            {number(item.count)}
+          </Box>
         </Stack>
 
         {/* Smooth Track with Gradient Fill */}
         <Box
           role="img"
-          aria-label={`${item.label}: ${item.count} teams (${pct}%)`}
+          aria-label={`${item.label}: ${item.count} teams`}
           sx={{
             height: 7,
             borderRadius: '999px',
@@ -616,25 +633,170 @@ export function RankedChart({ items, ...state }: StateProps & { items: Point[] }
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             {[...groups].map(([parent, children]) => {
               const theme = getBrandTheme(parent);
+              const parentCount = parentTotals.get(parent) || 0;
+              const childrenSum = children.reduce((acc, c) => acc + c.count, 0);
+              const directCount = parentCount - childrenSum;
+              const displaySubItems = [
+                ...children,
+                ...(children.length > 0 && directCount > 0
+                  ? [{ label: 'Direct / General', count: directCount }]
+                  : []),
+              ];
+
               return (
                 <Box
                   key={parent}
                   sx={{
-                    p: 1.75,
+                    p: 2,
                     bgcolor: '#FFFFFF',
                     borderRadius: 3,
                     border: '1px solid #E2E8F0',
-                    borderLeft: `4px solid ${theme.color}`,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                    boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&:hover': {
+                      borderColor: theme.light,
+                      boxShadow: '0 6px 18px -4px rgba(15, 23, 42, 0.08)',
+                      transform: 'translateY(-2px)',
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3px',
+                      background: theme.grad,
+                    },
                   }}
                 >
-                  <Typography sx={{ fontSize: 13, fontWeight: 750, color: '#0F172A', mb: children.length ? 1 : 0 }}>
-                    {parent}{' '}
-                    <Box component="span" sx={{ float: 'right', color: theme.color, fontWeight: 800 }}>
-                      {parentTotals.get(parent) || 0}
+                  {/* Card Header: Brand Dot + Name + Total Count Pill */}
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: theme.color,
+                          boxShadow: `0 0 8px ${theme.color}80`,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography sx={{ fontSize: 14, fontWeight: 750, color: '#0F172A', letterSpacing: '-0.01em' }}>
+                        {parent}
+                      </Typography>
+                    </Stack>
+
+                    <Box
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: theme.color,
+                        bgcolor: theme.bg,
+                        border: `1px solid ${theme.light}`,
+                        px: 1.1,
+                        py: 0.25,
+                        borderRadius: '999px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                      }}
+                    >
+                      <span>{number(parentCount)}</span>
+                      <Typography component="span" sx={{ fontSize: 10.5, fontWeight: 600, opacity: 0.85 }}>
+                        {parentCount === 1 ? 'team' : 'teams'}
+                      </Typography>
                     </Box>
-                  </Typography>
-                  <Stack gap={1}>{children.map((item) => renderProgressRow(item, max))}</Stack>
+                  </Stack>
+
+                  {/* Group Main Progress Bar (Always present so card is never empty) */}
+                  <Box
+                    role="img"
+                    aria-label={`${parent}: ${parentCount} teams`}
+                    sx={{
+                      height: 7,
+                      borderRadius: '999px',
+                      bgcolor: '#F1F5F9',
+                      overflow: 'hidden',
+                      mb: displaySubItems.length > 0 ? 1.75 : 0,
+                    }}
+                  >
+                    <Box
+                      className="dashboard-chart-mark"
+                      sx={{
+                        height: '100%',
+                        width: `${(parentCount / maxParent) * 100}%`,
+                        borderRadius: '999px',
+                        background: theme.grad,
+                        transition: 'width 0.4s ease-out',
+                      }}
+                    />
+                  </Box>
+
+                  {/* Subcategories (if any) */}
+                  {displaySubItems.length > 0 && (
+                    <Stack
+                      spacing={1}
+                      sx={{
+                        mt: 1.5,
+                        pt: 1.5,
+                        borderTop: '1px dashed #E2E8F0',
+                      }}
+                    >
+                      {displaySubItems.map((subItem) => (
+                        <Box
+                          key={subItem.label}
+                          sx={{
+                            p: '8px 12px',
+                            borderRadius: 2,
+                            bgcolor: '#F8FAFC',
+                            border: '1px solid #F1F5F9',
+                          }}
+                        >
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                              <Box
+                                sx={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: '50%',
+                                  bgcolor: theme.color,
+                                  opacity: 0.7,
+                                }}
+                              />
+                              <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#334155' }}>
+                                {subItem.label}
+                              </Typography>
+                            </Stack>
+                            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>
+                              {number(subItem.count)}
+                            </Typography>
+                          </Stack>
+
+                          {/* Subcategory Progress Bar */}
+                          <Box
+                            sx={{
+                              height: 5,
+                              borderRadius: '999px',
+                              bgcolor: '#E2E8F0',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                height: '100%',
+                                width: `${parentCount > 0 ? (subItem.count / parentCount) * 100 : 0}%`,
+                                borderRadius: '999px',
+                                background: theme.grad,
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
                 </Box>
               );
             })}
