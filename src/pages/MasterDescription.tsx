@@ -278,8 +278,8 @@ const MasterDescriptionScreen: React.FC = () => {
     const dataRows = excelData.slice(1);
     const columnIndexMap = createColumnIndexMap(headerRow);
 
-    if (!columnIndexMap.partNo && !columnIndexMap.description && !columnIndexMap.ndp && !columnIndexMap.mrp) {
-      console.warn('Header mapping incomplete:', columnIndexMap);
+    if (columnIndexMap.partNo == null) {
+      throw new Error('Part number column not found. Use a header such as Part No, PartNo, Part No#3, or PartNo#3.');
     }
 
     const json: ProcessedRow[] = [];
@@ -306,15 +306,19 @@ const MasterDescriptionScreen: React.FC = () => {
   const createColumnIndexMap = (headerRow: any[]): ColumnIndexMap => {
     const columnIndexMap: ColumnIndexMap = {};
     const headerVariations: Record<string, string[]> = {
-      partNo: ['part no#3', 'partno', 'part number', 'part_no', '000000000000002219', '000000000000002221'],
-      description: ['material description', 'description', 'desc'],
-      ndp: ['new ndp', 'ndp', 'net dealer price'],
-      mrp: ['new mrp', 'mrp', 'max retail price'],
+      partNo: ['partno', 'partnumber', '000000000000002219', '000000000000002221'],
+      description: ['materialdescription', 'description', 'desc'],
+      ndp: ['newndp', 'ndp', 'netdealerprice'],
+      mrp: ['newmrp', 'mrp', 'maxretailprice'],
     };
 
     headerRow.forEach((cell, index) => {
       if (!cell) return;
-      const txt = cell.toString().trim().toLowerCase();
+      const txt = cell.toString()
+        .trim()
+        .toLowerCase()
+        .replace(/#\s*\d+\s*$/, '')
+        .replace(/[\s_\-.]/g, '');
       for (const [key, variants] of Object.entries(headerVariations)) {
         if (variants.includes(txt)) {
           columnIndexMap[key as keyof ColumnIndexMap] = index;
